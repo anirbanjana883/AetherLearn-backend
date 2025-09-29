@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
         type :String ,
         default:""
     },
-    enrolldCourses:[{
+    enrolledCourses:[{
         type :mongoose.Schema.Types.ObjectId ,
         ref : "Course"
     }],
@@ -44,4 +44,4 @@ const userSchema = new mongoose.Schema({
 
 
 const User = mongoose.model("User",userSchema)
-export default (User)
+export default User
