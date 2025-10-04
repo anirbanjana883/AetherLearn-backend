@@ -3,7 +3,7 @@ import uploadOnCludinary from "../config/cloudinary.js";
 
 export const createCourse = async (req,res)=>{
     try {
-        const {title , category} = req.body
+        const {title , category , subtitle } = req.body
         if(!title || !category){
             return res.status(400).json({message:"Title or Category required"})
         }
@@ -11,6 +11,7 @@ export const createCourse = async (req,res)=>{
         const course = await Course.create({
             title,
             category,
+            subtitle,
             creator: req.userId
         })
         return res.status(201).json(course)
@@ -49,7 +50,7 @@ export const editCourse = async (req,res)=>{
         const {courseId} = req.params
         const {
             title,
-            subTitle,
+            subtitle,
             description,
             category,
             level,
@@ -67,7 +68,7 @@ export const editCourse = async (req,res)=>{
         if(!course){
             return res.status(400).json({message:" No couses found for editing"})
         }
-        const updateData = {title,subTitle,description,category,level,isPublished,price,thumbnail}
+        const updateData = {title,subtitle,description,category,level,isPublished,price,thumbnail}
 
         course = await  Course.findByIdAndUpdate(courseId,updateData,{new:true})
 
