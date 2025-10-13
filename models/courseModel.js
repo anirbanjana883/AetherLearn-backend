@@ -27,7 +27,7 @@ const courseSchema = new mongoose.Schema({
     thumbnail : {
         type :String , 
     },
-    enroledStudent : [{
+    enrolledStudent : [{
         type :mongoose.Schema.Types.ObjectId ,
         ref : "User"
     }],
