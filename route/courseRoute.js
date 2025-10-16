@@ -2,6 +2,7 @@ import express from "express"
 import isAuth from "../middleware/isAuth.js"
 import upload from "../middleware/multer.js"
 import { createCourse, createLecture, editCourse, editLecture, getCourseById, getCourseLecture, getCreatorById, getCreatorCourses, getPublishedCourses, removeCourse, removeLecture } from "../controller/courseController.js"
+import { searchWithAi } from "../controller/searchController.js"
 
 const courseRouter = express.Router()
 
@@ -22,5 +23,10 @@ courseRouter.delete("/removelecture/:lectureId",isAuth,removeLecture)
 
 // get creator
 courseRouter.post("/creator",isAuth,getCreatorById)
+
+
+// search wtth ai
+courseRouter.post("/search",isAuth,searchWithAi)
+
 
 export default courseRouter
