@@ -8,6 +8,7 @@ import userRouter from './route/userRoute.js';
 import courseRouter from './route/courseRoute.js';
 import paymentRouter from './route/paymentRoute.js';
 import reviewRouter from './route/reviewRoute.js';
+import progressRouter from './route/progressRoute.js';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use("/api/user",userRouter)
 app.use("/api/course",courseRouter)
 app.use("/api/order",paymentRouter)
 app.use("/api/review",reviewRouter)
+app.use("/api/progress", progressRouter);
 
 app.get('/', (req, res) => {
     res.send('Hello from AETHERLEARN ')

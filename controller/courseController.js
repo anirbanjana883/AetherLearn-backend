@@ -1,6 +1,7 @@
 import Course from "../models/courseModel.js";
 import Lecture from "../models/lectureModel.js";
 import User from "../models/userModel.js";
+import Progress from "../models/progressModel.js";
 import uploadOnCludinary from "../config/cloudinary.js";
 
 
@@ -218,5 +219,40 @@ export const getCreatorById = async (req, res) => {
     return res.status(200).json(user);
   } catch (error) {
     return res.status(500).json({ message: `Failed to fetch creator: ${error.message}` });
+  }
+};
+
+
+export const markLectureAsComplete = async (req, res) => {
+  const userId = req.userId; 
+  const { lectureId, date } = req.body; 
+
+  if (!lectureId || !date) {
+    return res.status(400).json({ message: "Lecture ID and date are required" });
+  }
+
+  try {
+    // --- Step 1: Mark Progress for the Heatmap ---
+    // Use the date from the frontend to create a new Date object.
+    const userToday = new Date(date); 
+    
+
+    await Progress.findOneAndUpdate(
+      { userId: userId, date: userToday }, // Use the corrected user's date
+      { $inc: { activityCount: 1 } },
+      { upsert: true, new: true }
+    );
+    // console.log(`Progress marked for user ${userId} on ${userToday.toDateString()}`);
+    
+    // --- Step 2: Track completed lectures for the user ---
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { completedLectures: lectureId } // $addToSet prevents duplicate entries
+    });
+
+    res.status(200).json({ message: "Lecture marked as complete and progress recorded." });
+
+  } catch (error) {
+    console.error("Error marking lecture complete:", error);
+    return res.status(500).json({ message: `Failed to mark lecture as complete: ${error.message}` });
   }
 };
