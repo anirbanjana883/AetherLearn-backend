@@ -1,47 +1,61 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema({
-    name : {
-        type :String ,
-        required : true
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
     },
-    description : {
-        type :String ,
+    description: {
+      type: String,
     },
-    email:{
-        type :String ,
-        required : true,
-        unique : true
+    email: {
+      type: String,
+      required: true,
+      unique: true,
     },
-    password : {
-        type :String ,
+    password: {
+      type: String,
     },
-    role:{
-        type :String ,
-        enum:["student","educator"],
-        required : true
+    role: {
+      type: String,
+      enum: ["student", "educator"],
+      required: true,
     },
-    photoUrl:{
-        type :String ,
-        default:""
+    photoUrl: {
+      type: String,
+      default: "",
     },
-    enrolledCourses:[{
-        type :mongoose.Schema.Types.ObjectId ,
-        ref : "Course"
+    enrolledCourses: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+      },
+    ],
+    resetOtp: {
+      type: String,
+    },
+    completedLectures: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Lecture", 
+      },
+    ],
+    unlockedAchievements: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Achievement' 
     }],
-    resetOtp:{
-        type : String
+    otpExpires: {
+      type: Date,
     },
-    otpExpires:{
-        type : Date
+    isOtpVerified: {
+      type: Boolean,
+      default: false,
     },
-    isOtpVerified:{
-        type : Boolean,
-        default : false
-    }
-},{timestamps:true})
+  },
+  { timestamps: true }
+);
 
-
-const User = mongoose.model("User",userSchema)
-export default User
+const User = mongoose.model("User", userSchema);
+export default User;

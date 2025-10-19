@@ -9,6 +9,8 @@ import courseRouter from './route/courseRoute.js';
 import paymentRouter from './route/paymentRoute.js';
 import reviewRouter from './route/reviewRoute.js';
 import progressRouter from './route/progressRoute.js';
+import statsRouter from './route/statsRoute.js';
+import achievementRouter from './route/achievementRoute.js';
 
 dotenv.config();
 
@@ -28,6 +30,8 @@ app.use("/api/course",courseRouter)
 app.use("/api/order",paymentRouter)
 app.use("/api/review",reviewRouter)
 app.use("/api/progress", progressRouter);
+app.use("/api/stats", statsRouter);
+app.use("/api/achievements", achievementRouter);
 
 app.get('/', (req, res) => {
     res.send('Hello from AETHERLEARN ')

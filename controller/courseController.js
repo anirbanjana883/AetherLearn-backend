@@ -3,6 +3,7 @@ import Lecture from "../models/lectureModel.js";
 import User from "../models/userModel.js";
 import Progress from "../models/progressModel.js";
 import uploadOnCludinary from "../config/cloudinary.js";
+import { checkAndAwardAchievements } from "../services/achievementService.js";
 
 
 // course 
@@ -248,6 +249,8 @@ export const markLectureAsComplete = async (req, res) => {
     await User.findByIdAndUpdate(userId, {
       $addToSet: { completedLectures: lectureId } // $addToSet prevents duplicate entries
     });
+
+    await checkAndAwardAchievements(userId);
 
     res.status(200).json({ message: "Lecture marked as complete and progress recorded." });
 
