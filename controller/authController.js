@@ -3,167 +3,132 @@ import validator from "validator"
 import bcrypt from "bcryptjs"
 import genToken from "../config/token.js"
 import sendMail from "../config/sendMail.js"
+import {asyncHandler} from "../utils/asyncHandler.js"
+import {ApiResponse} from "../utils/ApiResponse.js"
+import {ApiError} from "../utils/ApiError.js"
 
-// signup 
-export const signup = async (req, res) => {
-    try {
-        const { name, email, password, role } = req.body
-        let existUser = await User.findOne({ email })
-        if (existUser) {
-            return res.status(400).json({ message: "User already exists" })
-        }
-        if (!validator.isEmail(email)) {
-            return res.status(400).json({ message: "Enter valid email" })
-        }
-        if (password.length < 8) {
-            return res.status(400).json({ message: "Enter strong password" })
-        }
-        let hashPassword = await bcrypt.hash(password, 10)
-        const user = await User.create({
-            name,
-            email,
-            password: hashPassword,
-            role
-        })
-        let token = await genToken(user._id)
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: false,
-            sameSite: "Strict",
-            maxAge: 7 * 60 * 60 * 1000
-        })
-        return res.status(201).json(user)
-    } catch (error) {
-        return res.status(500).json({ message: `Signup error ${error}` })
+
+export const signup = asyncHandler(async (req, res) => {
+    const { name, email, password, role } = req.body;
+
+    const existedUser = await User.findOne({ email });
+    if (existedUser) {
+        throw new ApiError(409, "User with this email already exists");
     }
-}
 
-// login
-export const logIn = async (req, res) => {
-    try {
-        const { email, password } = req.body
-        let user = await User.findOne({ email })
-        if (!user) {
-            return res.status(404).json({ message: "User not found" })
-        }
-        let isMatch = await bcrypt.compare(password, user.password)
+    const hashPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({
+        name,
+        email,
+        password: hashPassword,
+        role
+    });
 
-        if (!isMatch) {
-            return res.status(400).json({ message: "Incorrect Password" })
-        }
-        let token = await genToken(user._id)
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: false,
-            sameSite: "Strict",
-            maxAge: 7 * 60 * 60 * 1000
-        })
-        return res.status(200).json(user)
-    } catch (error) {
-        return res.status(500).json({ message: `Login error ${error}` })
+    const createdUser = await User.findById(user._id).select("-password");
+    const token = await genToken(user._id);
+
+    const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 7 * 60 * 60 * 1000
+    };
+
+    return res
+        .status(201)
+        .cookie("token", token, options)
+        .json(new ApiResponse(201, createdUser, "User registered successfully"));
+});
+
+export const logIn = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new ApiError(404, "User not found");
     }
-}
 
-// logout
-export const logOut = async (req, res) => {
-    try {
-        await res.clearCookie("token", {
-            httpOnly: true,
-            secure: false,       // set true if using HTTPS
-            sameSite: "Strict"
-        })
-        return res.status(200).json({ message: `Logout successfully` })
-    } catch (error) {
-        return res.status(500).json({ message: `Logout error ${error}` })
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        throw new ApiError(401, "Invalid user credentials");
     }
-}
 
-// sendOtp 
-export const sendOtp = async (req, res) => {
-    try {
-        const { email } = req.body
-        const user = await User.findOne({ email })
-        if (!user) {
-            return res.status(404).json({ message: "User not found" })
-        }
-        const otp = Math.floor(1000 + Math.random() * 9000).toString()
+    const token = await genToken(user._id);
+    const loggedInUser = await User.findById(user._id).select("-password");
 
-        user.resetOtp = otp
-        user.otpExpires = Date.now() + 5 * 60 * 1000;
-        user.isOtpVerified = false
+    const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict",
+        maxAge: 7 * 60 * 60 * 1000
+    };
 
-        await user.save()
-        await sendMail(email, otp)
+    return res
+        .status(200)
+        .cookie("token", token, options)
+        .json(new ApiResponse(200, loggedInUser, "User logged in successfully"));
+});
 
-        return res.status(200).json({ message: `Otp sent successfully` })
-    } catch (error) {
-        return res.status(500).json({ message: `Otp sent error ${error}` })
+export const logOut = asyncHandler(async (req, res) => {
+    const options = {
+        httpOnly: true,
+        secure: true, 
+        sameSite: "Strict",
+    };
+
+    return res
+        .status(200)
+        .clearCookie("token", options)
+        .json(new ApiResponse(200, {}, "User logged out successfully"));
+});
+
+export const sendOtp = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) throw new ApiError(404, "User not found");
+
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    user.resetOtp = otp;
+    user.otpExpires = Date.now() + 5 * 60 * 1000;
+    user.isOtpVerified = false;
+    await user.save();
+    await sendMail(email, otp);
+
+    return res.status(200).json(new ApiResponse(200, {}, "OTP sent successfully"));
+});
+
+export const verifyOtp = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || user.resetOtp !== otp || user.otpExpires < Date.now()) {
+        throw new ApiError(400, "Invalid or expired OTP");
     }
-}
+    user.isOtpVerified = true;
+    user.resetOtp = undefined;
+    user.otpExpires = undefined;
+    await user.save();
+    return res.status(200).json(new ApiResponse(200, {}, "OTP verified successfully"));
+});
 
-// verify otp
-export const verifyOtp = async (req, res) => {
-    try {
-        const { email, otp } = req.body
-        const user = await User.findOne({ email })
-        if (!user || user.resetOtp != otp || user.otpExpires < Date.now()) {
-            return res.status(404).json({ message: "Invalid OTP" })
-        }
-
-        user.isOtpVerified = true
-        user.resetOtp = undefined
-        user.otpExpires = undefined
-
-        await user.save()
-        return res.status(200).json({ message: `Otp verified successfully` })
-
-    } catch (error) {
-        return res.status(500).json({ message: `Otp verification error ${error}` })
+export const resetPassword = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !user.isOtpVerified) {
+        throw new ApiError(400, "OTP verification required before password reset");
     }
-}
+    user.password = await bcrypt.hash(password, 10);
+    user.isOtpVerified = false;
+    await user.save();
+    return res.status(200).json(new ApiResponse(200, {}, "Password reset successfully"));
+});
 
-// reser password 
-export const resetPassword = async (req, res) => {
-    try {
-        const { email, password } = req.body
-        const user = await User.findOne({ email })
-        if (!user || !user.isOtpVerified) {
-            return res.status(404).json({ message: "OTP verification required" })
-        }
-
-        const hashPassword = await bcrypt.hash(password, 10)
-        user.password = hashPassword
-        user.isOtpVerified = false
-
-        await user.save();
-        return res.status(200).json({ message: `Password reset successfully` })
-
-    } catch (error) {
-        return res.status(500).json({ message: `Reset password error ${error}` })
+export const googleAuth = asyncHandler(async (req, res) => {
+    const { name, email, role } = req.body;
+    let user = await User.findOne({ email });
+    if (!user) {
+        user = await User.create({ name, email, role: role || "student" });
     }
-}
-
-// signup with google 
-export const googleAuth = async (req, res) => {
-    try {
-        const { name, email, role } = req.body
-        let user = await User.findOne({ email })
-        if (!user) {
-            user = await User.create({
-                name,
-                email,
-                role
-            })
-        }
-        let token = await genToken(user._id)
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: false,
-            sameSite: "Strict",
-            maxAge: 7 * 60 * 60 * 1000
-        })
-        return res.status(200).json(user)
-    } catch (error) {
-        return res.status(500).json({ message: `Authentication with google error ${error}` })
-    }
-}
+    const token = await genToken(user._id);
+    const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "Strict", maxAge: 7 * 60 * 60 * 1000 };
+    return res.status(200).cookie("token", token, options).json(new ApiResponse(200, user, "Google Login Success"));
+});
