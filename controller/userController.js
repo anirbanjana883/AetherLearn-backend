@@ -1,22 +1,21 @@
 
 import uploadOnCludinary from "../config/cloudinary.js";
 import User from "../models/userModel.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import {ApiResponse} from "../utils/ApiResponse.js"
 
 // get current user
-export const getCurrentUser = async (req, res) => {
-  try {
+export const getCurrentUser = asyncHandler(async (req, res) => {
     if (!req.userId) {
-      return res.status(401).json({ message: "Not authenticated" });
+      throw new ApiError(401, "Not authenticated");
     }
     const user = await User.findById(req.userId).select("-password").populate("enrolledCourses");
     if (!user) {
-      return res.status(404).json({ message: "user not found" });
+      throw new ApiError(404, "User not found");
     }
-    return res.status(200).json(user);
-  } catch (error) {
-    return res.status(500).json({ message: `GetCurrentUser error ${error}` });
-  }
-};
+    // Standardized Response
+    return res.status(200).json(new ApiResponse(200, user, "Current user fetched"));
+});
 
 // update profile
 export const updateProfile = async (req, res) => {

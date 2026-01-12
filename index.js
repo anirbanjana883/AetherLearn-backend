@@ -11,6 +11,7 @@ import reviewRouter from './route/reviewRoute.js';
 import progressRouter from './route/progressRoute.js';
 import statsRouter from './route/statsRoute.js';
 import achievementRouter from './route/achievementRoute.js';
+import { errorHandler } from './middleware/errorMiddleware.js';
 
 dotenv.config();
 
@@ -36,6 +37,8 @@ app.use("/api/achievements", achievementRouter);
 app.get('/', (req, res) => {
     res.send('Hello from AETHERLEARN ')
 })
+
+app.use(errorHandler);
 
 app.listen(port,() =>{
     console.log(`Server is running on port : ${port}`)
