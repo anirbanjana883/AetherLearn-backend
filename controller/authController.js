@@ -72,7 +72,7 @@ export const logIn = asyncHandler(async (req, res) => {
 export const logOut = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
-        secure: true, 
+        secure: process.env.NODE_ENV === "production",
         sameSite: "Strict",
     };
 

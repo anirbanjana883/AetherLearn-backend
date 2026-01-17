@@ -1,21 +1,25 @@
 import Course from "../models/courseModel.js";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 dotenv.config();
 
-export const searchWithAi = async (req, res) => {
-  try {
-    const { input } = req.body;
-    if (!input) {
-      return res.status(400).json({ message: "Query is required" });
-    }
+export const searchWithAi = asyncHandler(async (req, res) => {
+  const { input } = req.body;
 
-    const ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
+  if (!input) {
+    throw new ApiError(400, "Query is required");
+  }
 
-    const prompt = `
+  // Initialize AI
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+  });
+
+  const prompt = `
       You are a highly intelligent classification assistant for an LMS (Learning Management System) that helps students find courses.
 
       Your role:
@@ -59,46 +63,43 @@ export const searchWithAi = async (req, res) => {
       User Query: "${input}"
       `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+  const response = await ai.models.generateContent({
+    model: "gemini-2.0-flash", // Updated to latest stable model name if needed, or keep gemini-1.5-flash
+    contents: prompt,
+  });
 
-    const keyword =
-      response.candidates[0].content.parts[0].text.trim();
+  const keyword = response.candidates[0].content.parts[0].text.trim();
 
-    // normal search
-    const keywords = input.split(" ").filter(Boolean);
-    const orConditions = keywords.flatMap((word) => [
-      { title: { $regex: word, $options: "i" } },
-      { subtitle: { $regex: word, $options: "i" } },
-      { description: { $regex: word, $options: "i" } },
-      { category: { $regex: word, $options: "i" } },
-      { level: { $regex: word, $options: "i" } },
-    ]);
+  // 1. Normal Search (Regex on user input)
+  const keywords = input.split(" ").filter(Boolean);
+  const orConditions = keywords.flatMap((word) => [
+    { title: { $regex: word, $options: "i" } },
+    { subtitle: { $regex: word, $options: "i" } },
+    { description: { $regex: word, $options: "i" } },
+    { category: { $regex: word, $options: "i" } },
+    { level: { $regex: word, $options: "i" } },
+  ]);
 
-    let courses = await Course.find({
+  let courses = await Course.find({
+    isPublished: true,
+    $or: orConditions,
+  });
+
+  // 2. Fallback AI Search (If normal search fails, use AI keyword)
+  if (courses.length === 0) {
+    courses = await Course.find({
       isPublished: true,
-      $or: orConditions,
+      $or: [
+        { title: { $regex: keyword, $options: "i" } },
+        { subtitle: { $regex: keyword, $options: "i" } },
+        { description: { $regex: keyword, $options: "i" } },
+        { category: { $regex: keyword, $options: "i" } },
+        { level: { $regex: keyword, $options: "i" } },
+      ],
     });
-
-    if (courses.length > 0) {
-      return res.status(200).json(courses);
-    } else {
-      // fallback AI keyword search
-      courses = await Course.find({
-        isPublished: true,
-        $or: [
-          { title: { $regex: keyword, $options: "i" } },
-          { subtitle: { $regex: keyword, $options: "i" } },
-          { description: { $regex: keyword, $options: "i" } },
-          { category: { $regex: keyword, $options: "i" } },
-          { level: { $regex: keyword, $options: "i" } },
-        ],
-      });
-      return res.status(200).json(courses);
-    }
-  } catch (error) {
-    return res.status(500).json({ message: `Failed to search: ${error.message}` });
   }
-};
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, courses, "Search results fetched successfully"));
+});

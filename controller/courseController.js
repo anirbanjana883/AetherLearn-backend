@@ -4,258 +4,252 @@ import User from "../models/userModel.js";
 import Progress from "../models/progressModel.js";
 import uploadOnCludinary from "../config/cloudinary.js";
 import { checkAndAwardAchievements } from "../services/achievementService.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+
+// COURSE CONTROLLERS
 
 
-// course 
+export const createCourse = asyncHandler(async (req, res) => {
+    const { title, category, subtitle } = req.body;
 
-
-export const createCourse = async (req,res)=>{
-    try {
-        const {title , category , subtitle } = req.body
-        if(!title || !category){
-            return res.status(400).json({message:"Title or Category required"})
-        }
-
-        const course = await Course.create({
-            title,
-            category,
-            subtitle,
-            creator: req.userId
-        })
-        return res.status(201).json(course)
-    } catch (error) {
-        return res.status(500).json({ message: `Create course error ${error}` });
+    if (!title || !category) {
+        throw new ApiError(400, "Title or Category required");
     }
-}
 
-export const getPublishedCourses = async (req,res)=>{
-    try {
-        const courses = await Course.find({isPublished : true}).populate("lectures reviews")
-        if(!courses){
-            return res.status(400).json({message:" No published couses found"})
-        }
-        return res.status(200).json(courses)
-    } catch (error) {
-        return res.status(500).json({ message: `Failed to get published courses ${error}` });
+    const course = await Course.create({
+        title,
+        category,
+        subtitle,
+        creator: req.userId
+    });
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, course, "Course created successfully"));
+});
+
+export const getPublishedCourses = asyncHandler(async (req, res) => {
+    const courses = await Course.find({ isPublished: true }).populate("lectures reviews");
+
+    if (!courses) {
+        throw new ApiError(404, "No published courses found");
     }
-}
 
-export const getCreatorCourses = async (req,res)=>{
-    try {
-        const userId = req.userId
-        const courses = await Course.find({creator:userId})
-        if(!courses){
-            return res.status(400).json({message:" No couses found for this creator"})
-        }
-        return res.status(200).json(courses)
-    } catch (error) {
-        return res.status(500).json({ message: `Failed to get creator courses ${error}` });
+    return res
+        .status(200)
+        .json(new ApiResponse(200, courses, "Published courses fetched successfully"));
+});
+
+export const getCreatorCourses = asyncHandler(async (req, res) => {
+    const userId = req.userId;
+    const courses = await Course.find({ creator: userId });
+
+    if (!courses) {
+        throw new ApiError(404, "No courses found for this creator");
     }
-}
 
-export const editCourse = async (req,res)=>{
-    try {
-        const {courseId} = req.params
-        const {
-            title,
-            subtitle,
-            description,
-            category,
-            level,
-            isPublished,
-            price,
-        } = req.body
+    return res
+        .status(200)
+        .json(new ApiResponse(200, courses, "Creator courses fetched successfully"));
+});
 
-        // thumbnail not mandatory
-        let thumbnail
-        if(req.file){
-            thumbnail = await uploadOnCludinary(req.file.path)
-        }
+export const editCourse = asyncHandler(async (req, res) => {
+    const { courseId } = req.params;
+    const {
+        title,
+        subtitle,
+        description,
+        category,
+        level,
+        isPublished,
+        price,
+    } = req.body;
 
-        let course = await Course.findById(courseId)
-        if(!course){
-            return res.status(400).json({message:" No couses found for editing"})
-        }
-        const updateData = {title,subtitle,description,category,level,isPublished,price,thumbnail}
-
-        course = await  Course.findByIdAndUpdate(courseId,updateData,{new:true})
-
-        return res.status(200).json(course)
-    } catch (error) {
-        return res.status(500).json({ message: `Failed to edit courses ${error}` });
+    let thumbnail;
+    if (req.file) {
+        thumbnail = await uploadOnCludinary(req.file.path);
     }
-}
 
-// direct finding course by id
-export const getCourseById = async (req,res)=>{
-    try {
-        const {courseId} = req.params
-        let course = await Course.findById(courseId)
-        if(!course){
-            return res.status(400).json({message:" No couses found for editing"})
-        }
-        return res.status(200).json(course)
-    } catch (error) {
-        return res.status(500).json({ message: `Failed to get courses by id ${error}` });
+    let course = await Course.findById(courseId);
+    if (!course) {
+        throw new ApiError(404, "No course found for editing");
     }
-}
 
-export const removeCourse = async (req,res)=>{
-    try {
-        const {courseId} = req.params
-        let course = await Course.findById(courseId)
-        if(!course){
-            return res.status(400).json({message:" No couses found for editing"})
-        }
-        course = await Course.findByIdAndDelete(courseId,{new:true})
-        return res.status(200).json({ message: `Course removed successfully` })
-    } catch (error) {
-         return res.status(500).json({ message: `Failed to delete courses ${error}` });
+    // Prepare update object
+    const updateData = {
+        title,
+        subtitle,
+        description,
+        category,
+        level,
+        isPublished,
+        price,
+        ...(thumbnail && { thumbnail }) // Only update thumbnail if new one uploaded
+    };
+
+    course = await Course.findByIdAndUpdate(courseId, updateData, { new: true });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, course, "Course updated successfully"));
+});
+
+export const getCourseById = asyncHandler(async (req, res) => {
+    const { courseId } = req.params;
+    let course = await Course.findById(courseId);
+
+    if (!course) {
+        throw new ApiError(404, "Course not found");
     }
-}
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, course, "Course fetched successfully"));
+});
+
+export const removeCourse = asyncHandler(async (req, res) => {
+    const { courseId } = req.params;
+    let course = await Course.findById(courseId);
+
+    if (!course) {
+        throw new ApiError(404, "Course not found");
+    }
+
+    await Course.findByIdAndDelete(courseId);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Course removed successfully"));
+});
 
 
-// lecture
+// LECTURE CONTROLLERS
 
-
-export const createLecture = async (req, res) => {
-  try {
+export const createLecture = asyncHandler(async (req, res) => {
     const { lectureTitle } = req.body;
     const { courseId } = req.params;
 
     if (!lectureTitle || !courseId) {
-      return res.status(400).json({ message: "Lecture title and course ID are required" });
+        throw new ApiError(400, "Lecture title and course ID are required");
     }
 
     const lecture = await Lecture.create({ lectureTitle });
 
     const course = await Course.findById(courseId);
     if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+        throw new ApiError(404, "Course not found");
     }
 
     course.lectures.push(lecture._id);
     await course.save();
-
     await course.populate("lectures");
 
-    return res.status(201).json({ lecture, course });
-  } catch (error) {
-    return res.status(500).json({ message: `Lecture creation failed: ${error.message}` });
-  }
-};
+    return res
+        .status(201)
+        .json(new ApiResponse(201, { lecture, course }, "Lecture created successfully"));
+});
 
-
-export const getCourseLecture = async (req, res) => {
-  try {
+export const getCourseLecture = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
 
     const course = await Course.findById(courseId).populate("lectures");
     if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+        throw new ApiError(404, "Course not found");
     }
 
-    await course.populate("lectures")
-    await course.save()
-    return res.status(201).json(course);
-  } catch (error) {
-    return res.status(500).json({ message: `Failed to fetch lectures: ${error.message}` });
-  }
-};
+    await course.save(); 
 
+    return res
+        .status(200)
+        .json(new ApiResponse(200, course, "Lectures fetched successfully"));
+});
 
-export const editLecture = async (req,res) =>{
-    try {
-        const {lectureId} = req.params;
-        const {isPreviewFree , lectureTitle} = req.body
-        const lecture = await Lecture.findById(lectureId)
-        if(!lecture){
-            return res.status(404).json({ message: "Lecture not found" });
-        } 
+export const editLecture = asyncHandler(async (req, res) => {
+    const { lectureId } = req.params;
+    const { isPreviewFree, lectureTitle } = req.body;
 
-        let videoUrl
-        if(req.file){
-            videoUrl = await uploadOnCludinary(req.file.path)
-            lecture.videoUrl = videoUrl
-        }
-        if(lectureTitle){
-            lecture.lectureTitle = lectureTitle
-        }
-        lecture.isPreviewFree = isPreviewFree
-
-        await lecture.save()
-        return res.status(200).json(lecture);
-    } catch (error) {
-        return res.status(500).json({ message: `Failed to edit lectures: ${error.message}` });        
+    const lecture = await Lecture.findById(lectureId);
+    if (!lecture) {
+        throw new ApiError(404, "Lecture not found");
     }
-} 
 
-export const removeLecture = async (req,res)=>{
-    try {
-        const {lectureId} = req.params
-        const lecture = await Lecture.findByIdAndDelete(lectureId)
-
-        if(!lecture){
-            return res.status(404).json({ message: "Lecture not found" });
-        }
-        await Course.updateOne(
-            {lectures : lectureId},
-            {$pull : {lectures : lectureId}}
-        )
-        return res.status(200).json({message : "Lecture removed successfully"});
-    } catch (error) {
-        return res.status(500).json({ message: `Failed to remove lectures: ${error.message}` });
+    if (req.file) {
+        const videoUrl = await uploadOnCludinary(req.file.path);
+        lecture.videoUrl = videoUrl;
     }
-}
 
-export const getCreatorById = async (req, res) => {
-  try {
+    if (lectureTitle) {
+        lecture.lectureTitle = lectureTitle;
+    }
+    
+
+    if (isPreviewFree !== undefined) {
+        lecture.isPreviewFree = isPreviewFree;
+    }
+
+    await lecture.save();
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, lecture, "Lecture updated successfully"));
+});
+
+export const removeLecture = asyncHandler(async (req, res) => {
+    const { lectureId } = req.params;
+    
+    const lecture = await Lecture.findByIdAndDelete(lectureId);
+    if (!lecture) {
+        throw new ApiError(404, "Lecture not found");
+    }
+
+    await Course.updateOne(
+        { lectures: lectureId },
+        { $pull: { lectures: lectureId } }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Lecture removed successfully"));
+});
+
+export const getCreatorById = asyncHandler(async (req, res) => {
     const { userId } = req.body;
     const user = await User.findById(userId).select("-password");
 
     if (!user) {
-      return res.status(404).json({ message: "Creator not found" });
+        throw new ApiError(404, "Creator not found");
     }
 
-    return res.status(200).json(user);
-  } catch (error) {
-    return res.status(500).json({ message: `Failed to fetch creator: ${error.message}` });
-  }
-};
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "Creator fetched successfully"));
+});
 
+export const markLectureAsComplete = asyncHandler(async (req, res) => {
+    const userId = req.userId;
+    const { lectureId, date } = req.body;
 
-export const markLectureAsComplete = async (req, res) => {
-  const userId = req.userId; 
-  const { lectureId, date } = req.body; 
+    if (!lectureId || !date) {
+        throw new ApiError(400, "Lecture ID and date are required");
+    }
 
-  if (!lectureId || !date) {
-    return res.status(400).json({ message: "Lecture ID and date are required" });
-  }
-
-  try {
-    // --- Step 1: Mark Progress for the Heatmap ---
-    // Use the date from the frontend to create a new Date object.
-    const userToday = new Date(date); 
-    
+    const userToday = new Date(date);
 
     await Progress.findOneAndUpdate(
-      { userId: userId, date: userToday }, // Use the corrected user's date
-      { $inc: { activityCount: 1 } },
-      { upsert: true, new: true }
+        { userId: userId, date: userToday },
+        { $inc: { activityCount: 1 } },
+        { upsert: true, new: true }
     );
-    // console.log(`Progress marked for user ${userId} on ${userToday.toDateString()}`);
-    
-    // --- Step 2: Track completed lectures for the user ---
+
     await User.findByIdAndUpdate(userId, {
-      $addToSet: { completedLectures: lectureId } // $addToSet prevents duplicate entries
+        $addToSet: { completedLectures: lectureId }
     });
 
     await checkAndAwardAchievements(userId);
 
-    res.status(200).json({ message: "Lecture marked as complete and progress recorded." });
-
-  } catch (error) {
-    console.error("Error marking lecture complete:", error);
-    return res.status(500).json({ message: `Failed to mark lecture as complete: ${error.message}` });
-  }
-};
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Lecture marked as complete and progress recorded"));
+});
