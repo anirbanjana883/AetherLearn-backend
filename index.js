@@ -14,18 +14,48 @@ import achievementRouter from './route/achievementRoute.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import "./config/redis.js"; 
 
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
+import hpp from "hpp";
+import rateLimit from "express-rate-limit";
+
 
 dotenv.config();
 
 const port  = process.env.PORT || 5000
 const app = express()
 
-app.use(express.json())
-app.use(cookieParser())
+
+
+// 1. CORS (Must be first)
 app.use(cors({
-    origin : "http://localhost:5173",
-    credentials : true
-}))
+    origin: ["http://localhost:5173", "http://localhost:5174"], 
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.use(helmet({
+    crossOriginResourcePolicy: false, 
+}));
+
+// RATE LIMITER
+const limiter = rateLimit({
+    windowMs: 10 * 60 * 1000, 
+    max: 100, 
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: "Too many requests from this IP, please try again later."
+});
+app.use("/api", limiter);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// app.use(mongoSanitize()); 
+// app.use(hpp());
+
 
 app.use("/api/auth",authRouter)
 app.use("/api/user",userRouter)
