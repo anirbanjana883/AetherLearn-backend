@@ -7,10 +7,9 @@ import { checkAndAwardAchievements } from "../services/achievementService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import redisClient from "../config/redis.js"; 
 
 // COURSE CONTROLLERS
-
-
 export const createCourse = asyncHandler(async (req, res) => {
     const { title, category, subtitle } = req.body;
 
@@ -25,21 +24,37 @@ export const createCourse = asyncHandler(async (req, res) => {
         creator: req.userId
     });
 
+    await redisClient.del("all_courses");
+
     return res
         .status(201)
         .json(new ApiResponse(201, course, "Course created successfully"));
 });
 
 export const getPublishedCourses = asyncHandler(async (req, res) => {
+    const cacheKey = "all_courses";
+
+    const cachedCourses = await redisClient.get(cacheKey);
+
+    if (cachedCourses) {
+        const data = typeof cachedCourses === 'string' ? JSON.parse(cachedCourses) : cachedCourses;
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, data, "Published courses fetched from Cache"));
+    }
+
     const courses = await Course.find({ isPublished: true }).populate("lectures reviews");
 
     if (!courses) {
         throw new ApiError(404, "No published courses found");
     }
 
+    await redisClient.set(cacheKey, courses, { ex: 3600 });
+
     return res
         .status(200)
-        .json(new ApiResponse(200, courses, "Published courses fetched successfully"));
+        .json(new ApiResponse(200, courses, "Published courses fetched from Database"));
 });
 
 export const getCreatorCourses = asyncHandler(async (req, res) => {
@@ -77,7 +92,6 @@ export const editCourse = asyncHandler(async (req, res) => {
         throw new ApiError(404, "No course found for editing");
     }
 
-    // Prepare update object
     const updateData = {
         title,
         subtitle,
@@ -86,10 +100,13 @@ export const editCourse = asyncHandler(async (req, res) => {
         level,
         isPublished,
         price,
-        ...(thumbnail && { thumbnail }) // Only update thumbnail if new one uploaded
+        ...(thumbnail && { thumbnail })
     };
 
     course = await Course.findByIdAndUpdate(courseId, updateData, { new: true });
+
+    // ✅ Simple Invalidation
+    await redisClient.del("all_courses");
 
     return res
         .status(200)
@@ -98,6 +115,7 @@ export const editCourse = asyncHandler(async (req, res) => {
 
 export const getCourseById = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
+    
     let course = await Course.findById(courseId);
 
     if (!course) {
@@ -119,11 +137,12 @@ export const removeCourse = asyncHandler(async (req, res) => {
 
     await Course.findByIdAndDelete(courseId);
 
+    await redisClient.del("all_courses");
+
     return res
         .status(200)
         .json(new ApiResponse(200, {}, "Course removed successfully"));
 });
-
 
 // LECTURE CONTROLLERS
 
@@ -144,8 +163,7 @@ export const createLecture = asyncHandler(async (req, res) => {
 
     course.lectures.push(lecture._id);
     await course.save();
-    await course.populate("lectures");
-
+    
     return res
         .status(201)
         .json(new ApiResponse(201, { lecture, course }, "Lecture created successfully"));
@@ -158,8 +176,6 @@ export const getCourseLecture = asyncHandler(async (req, res) => {
     if (!course) {
         throw new ApiError(404, "Course not found");
     }
-
-    await course.save(); 
 
     return res
         .status(200)
@@ -180,14 +196,8 @@ export const editLecture = asyncHandler(async (req, res) => {
         lecture.videoUrl = videoUrl;
     }
 
-    if (lectureTitle) {
-        lecture.lectureTitle = lectureTitle;
-    }
-    
-
-    if (isPreviewFree !== undefined) {
-        lecture.isPreviewFree = isPreviewFree;
-    }
+    if (lectureTitle) lecture.lectureTitle = lectureTitle;
+    if (isPreviewFree !== undefined) lecture.isPreviewFree = isPreviewFree;
 
     await lecture.save();
 
@@ -214,13 +224,25 @@ export const removeLecture = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "Lecture removed successfully"));
 });
 
+// USER / PROGRESS CONTROLLERS
+
 export const getCreatorById = asyncHandler(async (req, res) => {
     const { userId } = req.body;
+    
+    const cachedCreator = await redisClient.get(`creator:${userId}`);
+    
+    if(cachedCreator) {
+         const data = typeof cachedCreator === 'string' ? JSON.parse(cachedCreator) : cachedCreator;
+         return res.status(200).json(new ApiResponse(200, data, "Fetched from Cache"));
+    }
+
     const user = await User.findById(userId).select("-password");
 
     if (!user) {
         throw new ApiError(404, "Creator not found");
     }
+
+    await redisClient.set(`creator:${userId}`, user, { ex: 3600 });
 
     return res
         .status(200)

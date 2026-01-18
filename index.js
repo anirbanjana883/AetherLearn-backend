@@ -12,6 +12,8 @@ import progressRouter from './route/progressRoute.js';
 import statsRouter from './route/statsRoute.js';
 import achievementRouter from './route/achievementRoute.js';
 import { errorHandler } from './middleware/errorMiddleware.js';
+import "./config/redis.js"; 
+
 
 dotenv.config();
 
