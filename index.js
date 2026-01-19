@@ -15,9 +15,11 @@ import { errorHandler } from './middleware/errorMiddleware.js';
 import "./config/redis.js"; 
 
 import helmet from "helmet";
-import mongoSanitize from "express-mongo-sanitize";
-import hpp from "hpp";
+// import mongoSanitize from "express-mongo-sanitize";
+// import hpp from "hpp";
 import rateLimit from "express-rate-limit";
+import morgan from 'morgan';
+import logger from "./config/logger.js";
 
 
 dotenv.config();
@@ -38,6 +40,25 @@ app.use(cors({
 app.use(helmet({
     crossOriginResourcePolicy: false, 
 }));
+
+
+const morganFormat = ":method :url :status :response-time ms";
+
+app.use(
+  morgan(morganFormat, {
+    stream: {
+      write: (message) => {
+        const logObject = {
+          method: message.split(" ")[0],
+          url: message.split(" ")[1],
+          status: message.split(" ")[2],
+          responseTime: message.split(" ")[3],
+        };
+        logger.info(JSON.stringify(logObject));
+      },
+    },
+  })
+);
 
 // RATE LIMITER
 const limiter = rateLimit({
@@ -66,13 +87,21 @@ app.use("/api/progress", progressRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/achievements", achievementRouter);
 
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'Active', 
+        timestamp: new Date() 
+    });
+});
+
 app.get('/', (req, res) => {
     res.send('Hello from AETHERLEARN ')
 })
 
 app.use(errorHandler);
 
-app.listen(port,() =>{
+app.listen(port, '0.0.0.0', () => {
     console.log(`Server is running on port : ${port}`)
     connectDb()
 })

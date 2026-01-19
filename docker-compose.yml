@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  #  SERVICE 1:  BACKEND API
+  api:
+    container_name: aether_backend
+    build: .
+    ports:
+      - "8000:5000"
+    env_file:
+      - .env
+    environment:
+      - PORT=5000
+      - MONGO_URL=mongodb://mongo_db:27017/aetherlearn_docker
+    depends_on:
+      - mongo_db
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+  #  SERVICE 2: LOCAL MONGODB
+  mongo_db:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      # Persist data so your DB doesn't vanish when you stop Docker
+      - mongo_data:/data/db
+
+
+volumes:
+  mongo_data:
