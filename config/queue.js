@@ -11,6 +11,7 @@ const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379"
 });
 
 export const emailQueue = new Queue("email-queue", { connection });
+export const videoQueue = new Queue("video-queue", { connection });
 
 const worker = new Worker(
   "email-queue",

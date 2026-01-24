@@ -1,21 +1,30 @@
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 
-
 const lectureSchema = new mongoose.Schema({
-    lectureTitle : {
-        type :String ,
-        required : true
+    lectureTitle: {
+        type: String,
+        required: true
     },
-    videoUrl : {
-        type :String ,
+    videoUrl: {
+        type: String,
     },
-    isPreviewFree : {
-        type : Boolean
+    status: {
+        type: String,
+        enum: ["pending", "processing", "ready", "failed"],
+        default: "pending"
+    },
+    publicId: {
+        type: String,
+    },
+    duration: {
+        type: Number, 
+        default: 0
+    },
+    isPreviewFree: {
+        type: Boolean,
+        default: false
     }
+}, { timestamps: true });
 
-},{timestamps:true})
-
-
-const Lecture = mongoose.model("Lecture",lectureSchema)
-export default Lecture
+const Lecture = mongoose.model("Lecture", lectureSchema);
+export default Lecture;

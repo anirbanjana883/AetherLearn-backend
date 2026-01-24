@@ -7,7 +7,10 @@ import { checkAndAwardAchievements } from "../services/achievementService.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import redisClient from "../config/redis.js"; 
+import redisClient from "../config/redis.js";
+import { videoQueue } from "../config/queue.js"; 
+
+
 
 // COURSE CONTROLLERS
 export const createCourse = asyncHandler(async (req, res) => {
@@ -105,7 +108,6 @@ export const editCourse = asyncHandler(async (req, res) => {
 
     course = await Course.findByIdAndUpdate(courseId, updateData, { new: true });
 
-    // ✅ Simple Invalidation
     await redisClient.del("all_courses");
 
     return res
@@ -182,6 +184,7 @@ export const getCourseLecture = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, course, "Lectures fetched successfully"));
 });
 
+//  Async Video Processing
 export const editLecture = asyncHandler(async (req, res) => {
     const { lectureId } = req.params;
     const { isPreviewFree, lectureTitle } = req.body;
@@ -192,8 +195,13 @@ export const editLecture = asyncHandler(async (req, res) => {
     }
 
     if (req.file) {
-        const videoUrl = await uploadOnCludinary(req.file.path);
-        lecture.videoUrl = videoUrl;
+        lecture.status = "processing";
+        lecture.videoUrl = ""; 
+
+        await videoQueue.add("transcode-video", {
+            lectureId: lecture._id,
+            filePath: req.file.path // Multer saved this locally
+        });
     }
 
     if (lectureTitle) lecture.lectureTitle = lectureTitle;
@@ -203,7 +211,7 @@ export const editLecture = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, lecture, "Lecture updated successfully"));
+        .json(new ApiResponse(200, lecture, "Lecture updated. Video is processing in background ⏳"));
 });
 
 export const removeLecture = asyncHandler(async (req, res) => {

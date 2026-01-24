@@ -20,6 +20,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from 'morgan';
 import logger from "./config/logger.js";
+import "./workers/videoWorker.js";
 
 
 dotenv.config();
@@ -78,6 +79,7 @@ app.use(cookieParser());
 // app.use(hpp());
 
 
+app.use("/public", express.static("public"));
 app.use("/api/auth",authRouter)
 app.use("/api/user",userRouter)
 app.use("/api/course",courseRouter)
