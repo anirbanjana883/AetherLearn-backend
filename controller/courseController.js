@@ -254,7 +254,13 @@ export const createLecture = asyncHandler(async (req, res) => {
     );
 
     section.lectures.push(lecture._id);
+
     await section.save({ session });
+
+    await Course.findByIdAndUpdate(section.courseId, {
+      $inc: { totalLectures: 1 },
+    }).session(session);
+    await redisClient.del(`courseMeta:${section.courseId}`);
 
     await session.commitTransaction();
 
@@ -345,10 +351,19 @@ export const removeLecture = asyncHandler(async (req, res) => {
     const lecture = await Lecture.findByIdAndDelete(lectureId).session(session);
     if (!lecture) throw new ApiError(404, "Lecture not found");
 
-    await Section.updateOne(
-      { _id: sectionId },
-      { $pull: { lectures: lectureId } },
+    const section = await Section.findByIdAndUpdate(
+      sectionId,
+      { $pull: { lectures: lectureId } }
     ).session(session);
+
+    if (!section) throw new ApiError(404, "Section not found");
+
+    //  Decrement the O(1) totalLectures counter on the parent Course
+    await Course.findByIdAndUpdate(section.courseId, {
+      $inc: { totalLectures: -1 },
+    }).session(session);
+
+    await redisClient.del(`courseMeta:${section.courseId}`);
 
     await session.commitTransaction();
 
@@ -426,13 +441,13 @@ export const completeChunkUpload = asyncHandler(async (req, res) => {
     }
     const data = await fs.readFile(chunkPath);
     writeStream.write(data);
-    await fs.remove(chunkPath); 
+    await fs.remove(chunkPath);
   }
 
   writeStream.end();
-  await fs.remove(chunkDir); 
+  await fs.remove(chunkDir);
 
-  //  Upload RAW to Cloudinary 
+  //  Upload RAW to Cloudinary
   const cloudRaw = await uploadOnCloudinary(finalFilePath);
   if (!cloudRaw) {
     throw new ApiError(500, "Failed to persist raw video to Cloudinary");

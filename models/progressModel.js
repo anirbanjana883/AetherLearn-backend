@@ -6,17 +6,34 @@ const progressSchema = new mongoose.Schema({
     ref: 'User', 
     required: true,
   },
-  date: {
-    type: Date, 
+  courseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course',
     required: true,
+  },
+  completedLectures: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Lecture'
+  }],
+  watchTimes: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  lastWatchedLecture: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Lecture'
+  },
+  date: {
+    type: Date,
   },
   activityCount: {
     type: Number,
-    default: 1,
-  },
-});
+    default: 0,
+  }
+}, { timestamps: true });
 
-// This is crucial: It ensures a user can only have one progress entry per day.
-progressSchema.index({ userId: 1, date: 1 }, { unique: true });
+// OPTIMIZATION: Compound Index - ultra-fast read/write speeds 
+progressSchema.index({ userId: 1, courseId: 1 }, { unique: true });
 
 export default mongoose.model("Progress", progressSchema);

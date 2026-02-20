@@ -39,13 +39,15 @@ const userSchema = new mongoose.Schema(
     completedLectures: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Lecture", 
+        ref: "Lecture",
       },
     ],
-    unlockedAchievements: [{
+    unlockedAchievements: [
+      {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Achievement' 
-    }],
+        ref: "Achievement",
+      },
+    ],
     otpExpires: {
       type: Date,
     },
@@ -53,8 +55,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    currentStreak: { type: Number, default: 0 },
+    lastActiveDate: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const User = mongoose.model("User", userSchema);
