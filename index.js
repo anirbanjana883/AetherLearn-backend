@@ -20,8 +20,9 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from 'morgan';
 import logger from "./config/logger.js";
-import "./workers/videoWorker.js";
 
+import "./workers/emailWorker.js";
+import "./workers/videoWorker.js";
 
 dotenv.config();
 
