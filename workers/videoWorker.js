@@ -8,7 +8,10 @@ import Lecture from "../models/lectureModel.js";
 import uploadOnCloudinary from "../config/cloudinary.js";
 import logger from "../config/logger.js"; 
 
-const connection = new IORedis(process.env.REDIS_URL);
+const connection = new IORedis(process.env.UPSTASH_REDIS_URL, {
+  maxRetriesPerRequest: null,
+  tls: {}
+});
 
 // Native FFmpeg execution (No dependencies)
 const runFFmpeg = (inputPath, outputPath, job) => {

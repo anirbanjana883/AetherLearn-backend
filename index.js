@@ -23,6 +23,7 @@ import logger from "./config/logger.js";
 
 import "./workers/emailWorker.js";
 import "./workers/videoWorker.js";
+import analyticsRouter from './route/analyticsRoute.js';
 
 dotenv.config();
 
@@ -89,6 +90,7 @@ app.use("/api/review",reviewRouter)
 app.use("/api/progress", progressRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/achievements", achievementRouter);
+app.use("/api/analytics", analyticsRouter);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
