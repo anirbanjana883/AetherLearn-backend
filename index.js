@@ -1,5 +1,6 @@
+import 'dotenv/config';
+
 import express from 'express';
-import dotenv from 'dotenv';
 import connectDb from './config/connectDB.js';
 import cookieParser from 'cookie-parser';
 import authRouter from './route/authRoute.js';
@@ -27,7 +28,6 @@ import "./workers/analyticsFlusher.js";
 import "./workers/ratingFlusher.js";
 import analyticsRouter from './route/analyticsRoute.js';
 
-dotenv.config();
 
 const port  = process.env.PORT || 5000
 const app = express()

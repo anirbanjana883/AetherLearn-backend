@@ -7,8 +7,9 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
+const connection = new IORedis(process.env.UPSTASH_REDIS_URL, {
   maxRetriesPerRequest: null,
+  tls: {}
 });
 
 const emailWorker = new Worker(

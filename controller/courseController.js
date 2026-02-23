@@ -10,6 +10,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import redisClient from "../config/redis.js";
 import { videoQueue } from "../config/queue.js";
+import path from 'path';
+import fs from 'fs';
 
 // COURSE CONTROLLERS
 export const createCourse = asyncHandler(async (req, res) => {

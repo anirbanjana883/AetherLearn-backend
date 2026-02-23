@@ -1,306 +1,73 @@
-# 🎓 AetherLearn – Scalable E-Learning & Gamified Education Platform (Backend)
-
-**AetherLearn** is a production-grade, scalable **Node.js backend** for a modern **Learning Management System (LMS)**.  
-Built on **Express 5** and **Mongoose 8**, it is designed to handle **high-traffic media streaming**, **gamified user progression**, and **secure financial transactions**.
-
-This backend emphasizes:
-
-- **Asynchronous Workloads** – Heavy tasks (video processing, email notifications) are offloaded to **BullMQ** and **Redis**
-- **Hardened Security** – Comprehensive protection using **Helmet**, **HPP**, **Express-Mongo-Sanitize**, and **Rate Limiting**
-- **Media Optimization** – Cloudinary integration for scalable lecture video streaming and image hosting
-- **Robust Observability** – Structured logging using **Winston** and request tracing via **Morgan**
-
----
-
-## 🛠️ Tech Stack & Dependencies
-
-### Core
-- Node.js
-- Express **v5.1.0**
-
-### Database & ORM
-- MongoDB
-- Mongoose **v8**
-
-### Caching & Queues
-- ioredis
-- Upstash Redis
-- BullMQ
-
-### Security
-- Helmet
-- HPP (HTTP Parameter Pollution)
-- Express-Rate-Limit
-- Express-Mongo-Sanitize
-
-### Validation
-- Zod
-- Validator
-
-### Authentication
-- JWT (JSON Web Tokens)
-- Bcryptjs
-- Cookie-Parser
-
-### Media & File Handling
-- Multer
-- Cloudinary
-
-### Payments
-- Razorpay
-
-### Email Services
-- Nodemailer
-- Resend
-
-### AI Integration
-- Google GenAI (Gemini API)
-
-### Logging
-- Winston
-- Morgan
-
----
-
-## 🚀 Key Features
-
----
-
-### 🔐 Authentication & Security
-
-- Secure email/password registration using **Bcryptjs**
-- JWT-based stateless authentication stored in **HTTP-only cookies**
-- Strict request validation using **Zod schemas**
-- Protection against:
-  - NoSQL Injection
-  - XSS attacks
-  - HTTP Parameter Pollution
-- Centralized error handling with structured logging
-
----
-
-### 📚 Core LMS Engine
-
-- **Course Management**
-  - Create, update, and manage structured courses and modules
-- **Lecture Delivery**
-  - Multer + Cloudinary integration
-  - Optimized for high-bandwidth video streaming
-- **Progress Tracking**
-  - Granular lecture-level and module-level progress tracking
-
----
-
-### 🏆 Gamification & Achievements
-
-- Automated milestone tracking:
-  - First Course Completed
-  - Streak Master
-- Dynamic badge allocation based on user engagement
-- Backend-driven evaluation via dedicated services
-
----
-
-### 🤖 AI Assistance & Search
-
-- Google Gemini API integration for:
-  - AI-powered course recommendations
-  - Instant query resolution
-- Advanced filtering, sorting, and pagination for search
-
----
-
-### 💳 Payments & Notifications
-
-- **Razorpay Integration**
-  - Secure order creation
-  - Backend-verified webhook signatures
-- Transaction history and order management
-- Multi-provider email system:
-  - OTP emails
-  - Welcome emails
-  - Payment invoices
-  - Powered by Nodemailer and Resend
-
----
-
-## 🏗️ High-Level Architecture
-```
-
-Client (Web / Mobile)
-│
-▼
-Express 5 API Gateway
-│
-├── Security Middleware
-│ ├── Helmet
-│ ├── CORS
-│ ├── Rate Limiting
-│ ├── HPP
-│ └── Mongo Sanitize
-│
-├── Middleware Layer
-│ ├── isAuth (JWT Verification)
-│ ├── validateMiddleware (Zod Validation)
-│ └── errorMiddleware (Winston Logging)
-│
-├── Domain Controllers
-│ ├── Auth & Users
-│ ├── Courses & Lectures
-│ ├── Gamification (Achievements)
-│ └── Payments (Razorpay)
-│
-├── Data & Cache Layer
-│ ├── MongoDB (Mongoose) – Primary Datastore
-│ └── Redis (ioredis / Upstash) – Cache & Rate Limiting
-│
-└── Background Workers
-└── BullMQ Queues → Cloudinary Processing / Async Emails
-
-
-```
-
-
-## 🗂️ Project Structure
-```
-AetherLearn-backend/
-├── config/ # Redis, Cloudinary, DB, Queue, Logger configs
-├── controller/ # Domain-specific controllers
-├── middleware/ # Auth, Multer, Error handling, Zod validation
-├── models/ # Mongoose schemas (User, Course, Achievement)
-├── route/ # API route definitions
-├── services/ # Business logic (Achievements, Payments)
-├── utils/ # ApiError, ApiResponse, AsyncHandler
-├── validators/ # Zod request schemas
-├── index.js # Application entry point
-├── seed.js # Database seeder
-├── Dockerfile
-└── docker-compose.yml
-
-
-```
-
-## 🔗 API Endpoints (High-Level)
-
----
-
-### 🔐 Auth (`/api/v1/auth`)
-
-| Method | Endpoint | Description |
-|------|--------|-------------|
-| POST | `/register` | Register new user |
-| POST | `/login` | Authenticate user & issue JWT |
-| POST | `/refresh` | Refresh access token |
-| POST | `/forgot-password` | Send reset email |
-
----
-
-### 📚 Courses (`/api/v1/courses`)
-
-| Method | Endpoint | Description |
-|------|--------|-------------|
-| GET | `/` | Get all courses (filters supported) |
-| GET | `/:id` | Get course details + lectures |
-| POST | `/` | Create course (Instructor/Admin) |
-| POST | `/:id/lectures` | Upload lecture video |
-
----
-
-### 📈 Progress & Gamification  
-(`/api/v1/progress`, `/api/v1/achievements`)
-
-| Method | Endpoint | Description |
-|------|--------|-------------|
-| PUT | `/progress/:lectureId` | Mark lecture as completed |
-| GET | `/achievements` | Get unlocked badges |
-
----
-
-## ⚙️ Setup Instructions (Local)
-
-### 1️⃣ Prerequisites
-- Node.js ≥ 18
-- Docker & Docker Compose
-- MongoDB (Atlas or local)
-- Redis / Upstash Redis
-
----
-
-### 2️⃣ Environment Variables
-
-Create a `.env` file in the root directory:
-
-```env
-# ==========================================
-# ⚙️ Server Configuration
-# ==========================================
-PORT=5000
-NODE_ENV=development
-
-# ==========================================
-# 🗄️ Database Configuration
-# ==========================================
-MONGODB_URL=your_mongodb_connection_string
-
-# ==========================================
-# 🔐 Authentication (JWT)
-# ==========================================
-JWT_SECRET=your_super_secret_jwt_key
-
-# ==========================================
-# 📧 Email Services
-# ==========================================
-USER_EMAIL=your_support_email@gmail.com
-USER_PASSWORD=your_email_app_password
-RESEND_API_KEY=your_resend_api_key
-
-# ==========================================
-# ☁️ Cloudinary
-# ==========================================
-CLOUDINARY_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-
-# ==========================================
-# 💳 Razorpay
-# ==========================================
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-
-# ==========================================
-# 🤖 AI (Google Gemini)
-# ==========================================
-GEMINI_API_KEY=your_google_gemini_api_key
-
-# ==========================================
-# ⚡ Redis (Upstash / BullMQ)
-# ==========================================
-UPSTASH_REDIS_REST_URL=your_upstash_redis_url
-UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
-
-```
-
-**3️⃣ Install Dependencies**
-```
-npm install
-```
-
-**4️⃣ Run Development Server**
-```
-npm run dev
-```
-**5️⃣ Run with Docker (Recommended)**
-```
-docker-compose up --build
-```
-**6️⃣ Seed Database (Initial Setup)**
-```
-npm run seed
-```
-# 🧠 What This Backend Demonstrates
-- ✅ Complex Mongoose relationships (Users ↔ Courses ↔ Achievements)
-- ✅ Third-party SaaS integrations (Cloudinary, Razorpay, Google AI)
-- ✅ Clean code architecture (Controller–Service–Middleware pattern)
-- ✅ Hardened production-grade security
-- ✅ Scalable background processing with BullMQ
-- ✅ Production-ready Docker containerization
+# 🚀 AetherLearn Backend System
+
+This project implements a high-performance, enterprise-grade backend system designed for a massively scalable Learning Management System (LMS) akin to Udemy or Coursera.
+
+The system is capable of:
+- Handling heavy concurrent video processing via asynchronous worker queues.
+- Guaranteeing zero financial discrepancies through ACID-compliant, Zero-Trust payment webhooks.
+- Providing sub-50ms search results with a hybrid AI-semantic fallback engine.
+- Securing user data against DDoS, brute-force, and payload injection attacks.
+
+It achieves this through decoupled micro-architecture, Redis caching, native database text indexing, and asynchronous background job processing.
+
+## 📌 Functional Requirements Implemented
+
+- Secure JWT Authentication with OTP password recovery.
+- Automated Video Compression & Processing pipeline (FFmpeg to Cloudinary).
+- Zero-Trust Checkout & Enrollment via Razorpay webhooks.
+- Gamified Student Progress Tracking (Daily Streaks, XP, Heatmaps).
+- AI-Powered Hybrid Search Engine with Semantic Intent Classification.
+- Bulletproof Security Firewall (Strict Rate Limiting, Zod Validation, Helmet CSP).
+
+## 🧰 Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Runtime | Node.js |
+| Framework | Express.js |
+| Database | MongoDB |
+| ODM | Mongoose |
+| Queue System | BullMQ |
+| Caching | Redis (Upstash) |
+| Payment Gateway | Razorpay |
+| AI Integration | Google Gemini 2.0 Flash |
+| Media Processing | Native FFmpeg + Cloudinary |
+| Security | Zod, Helmet, Express-Rate-Limit |
+
+## 🏗️ System Overview
+
+AetherLearn utilizes a highly optimized, asynchronous architecture to ensure the main Node.js event loop remains unblocked during heavy operations.
+
+- Heavy compute tasks (like 4K video compression and sending emails) are offloaded to BullMQ background workers.
+- Financial transactions completely bypass the untrusted frontend, relying entirely on secure server-to-server webhook events wrapped in ACID database transactions.
+- Course Discovery relies on a Lazy-Evaluation pipeline, instantly returning MongoDB $text index results, and only waking up the Gemini LLM for semantic fallback on vague queries (with Redis caching to eliminate redundant AI costs).
+
+## 📚 Detailed Documentation
+
+All comprehensive system design deliverables, architectural decisions, and API specifications are organized inside the docs/ folder for easy navigation.
+
+| Section | Description | Link |
+|---------|-------------|------|
+| 📌 Security & Auth Firewall | JWT flow, OTP logic, Zod validation, and API rate limiters. | [View](./docs/SECURITY%20&%20AUTHENTICATION%20FIREWALL.md) |
+| 📌 Course Management | Core CRUD operations and course publishing architecture. | [View](./docs/COURSE_MANAGEMENT_SYSTEM.md) |
+| 📌 Video Processing System | Async FFmpeg compression, BullMQ, and Cloudinary uploads. | [View](./docs/VIDEO_PROCESSING_SYSTEM.md) |
+| 📌 User Learning & Progress | Streaks, Activity Heatmaps, and lecture completion tracking. | [View](./docs/USER_LEARNING_SYSTEM_(PROGRESS_TRACKING).md) |
+| 📌 Review & Rating System | User feedback loops and automated rating aggregation flushers. | [View](./docs/REVIEW%20&%20RATING%20SYSTEM.md) |
+| 📌 Order & Payment System | Zero-Trust Razorpay Webhooks & ACID database transactions. | [View](./docs/ORDER%20&%20PAYMENT%20SYSTEM.md) |
+| 📌 Course Analytics | Product intelligence layer, sales, and enrollment tracking. | [View](./docs/COURSE%20ANALYTICS%20SYSTEM%20(Product%20Intelligence%20Layer).md) |
+| 📌 AI-Powered Search Engine | Hybrid semantic search, Lazy LLM evaluation, and Redis caching. | [View](./docs/AI-POWERED%20SEARCH%20ENGINE.md) |
+| 📌 Setup & Deployment Guide | Docker configuration, environment variables, and local testing. | [View](./docs/AetherLearn%20Setup%20&%20Deployment%20Guide.md) |
+
+## 📌 Final Note
+
+This AetherLearn Backend System has been designed with a focus on:
+
+- Data Integrity & ACID Compliance
+- Asynchronous Processing & Offloading
+- Cost-Optimized AI Integrations
+- Enterprise-Grade Security
+- Scalability under high payload load
+
+All architectural decisions, caching layers, and algorithmic trade-offs were made to ensure maximum performance, financial correctness, and long-term maintainability.
+
+— Anirban Jana
