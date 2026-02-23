@@ -49,12 +49,14 @@ const courseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    reviews: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Review",
-      },
-    ],
+    avgRating: {
+      type: Number,
+      default: 0,
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
+    },
     totalLectures: {
       type: Number,
       default: 0,

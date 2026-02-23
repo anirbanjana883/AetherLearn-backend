@@ -48,7 +48,7 @@ const runFFmpeg = (inputPath, outputPath, job) => {
                     const seconds = parseFloat(match[3]);
                     const currentTime = (hours * 3600) + (minutes * 60) + seconds;
                     const progress = Math.floor((currentTime / totalDuration) * 100);
-                    job.updateProgress(progress); // Send progress to Redis UI
+                    job.updateProgress(progress); 
                 }
             }
         });
@@ -69,11 +69,10 @@ export const videoWorker = new Worker("video-queue", async (job) => {
     const compressedVideoPath = path.join(tempDir, "final_compressed.mp4");
 
     try {
-        // 🚀 THE BANDWIDTH SAVER TRICK 🚀
-        // We tell Cloudinary to scale it down to 480p on-the-fly BEFORE sending it to Render
+        // scale down too 480p by cloudinary before sending to render
         const optimizedDownloadUrl = rawVideoUrl.replace('/upload/', '/upload/q_auto,w_854,h_480/');
 
-        logger.info(`⬇️ Downloading OPTIMIZED raw video: ${optimizedDownloadUrl}`);
+        logger.info(`⬇Downloading OPTIMIZED raw video: ${optimizedDownloadUrl}`);
         const response = await axios({
             url: optimizedDownloadUrl,
             method: 'GET',
@@ -93,7 +92,7 @@ export const videoWorker = new Worker("video-queue", async (job) => {
         await runFFmpeg(rawVideoPath, compressedVideoPath, job);
 
         // Upload Final Version
-        logger.info(`☁️ Uploading FINAL video to Cloudinary...`);
+        logger.info(`Uploading FINAL video to Cloudinary...`);
         const cloudResponse = await uploadOnCloudinary(compressedVideoPath);
         
         if (!cloudResponse) throw new Error("Failed to upload processed video");
@@ -111,10 +110,10 @@ export const videoWorker = new Worker("video-queue", async (job) => {
             message: "Your video has been successfully compressed and is ready!"
         }));
 
-        logger.info(`✅ Video Pipeline Complete for Lecture: ${lectureId}`);
+        logger.info(`Video Pipeline Complete for Lecture: ${lectureId}`);
 
     } catch (error) {
-        logger.error(`❌ Video Processing Failed: ${error.message}`);
+        logger.error(`Video Processing Failed: ${error.message}`);
         await Lecture.findByIdAndUpdate(lectureId, { status: "FAILED" });
         throw error; 
     } finally {

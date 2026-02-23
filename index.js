@@ -23,6 +23,8 @@ import logger from "./config/logger.js";
 
 import "./workers/emailWorker.js";
 import "./workers/videoWorker.js";
+import "./workers/analyticsFlusher.js";
+import "./workers/ratingFlusher.js";
 import analyticsRouter from './route/analyticsRoute.js';
 
 dotenv.config();

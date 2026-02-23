@@ -8,6 +8,6 @@ const redisClient = new Redis({
   token: process.env.UPSTASH_REDIS_REST_TOKEN, 
 });
 
-console.log("✅ Upstash Redis (HTTP) Initialized");
+console.log(" Upstash Redis (HTTP) Initialized");
 
 export default redisClient;
