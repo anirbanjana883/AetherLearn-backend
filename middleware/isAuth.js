@@ -1,22 +1,25 @@
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
+import { ApiError } from "../utils/ApiError.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 
-const isAuth = async (req , res ,next)=>{
-    try {
-        let {token} = req.cookies
+const isAuth = asyncHandler(async (req, res, next) => {
+    let token = req.cookies?.token || req.header("Authorization")?.replace("Bearer ", "");
 
-        if(!token){
-            return res.status(401).json({message:"User token not available"})
-        }
-        let verifyToken = await jwt.verify(token,process.env.JWT_SECRET)
-
-        if(!verifyToken){
-            return res.status(400).json({message:"User don't have valid token"})
-        }
-
-        req.userId = verifyToken.userId
-        next()
-    } catch (error) {
-        return res.status(500).json({message:`isAuth error ${error}`})
+    if (!token) {
+        throw new ApiError(401, "Unauthorized access. No token provided.");
     }
-}
+
+    try {
+        // cryptographic token verification
+        const verifyToken = jwt.verify(token, process.env.JWT_SECRET);
+        req.userId = verifyToken.userId;
+        next();
+    } catch (error) {
+        if (error.name === "TokenExpiredError") {
+            throw new ApiError(401, "Session expired. Please log in again.");
+        }
+        throw new ApiError(401, "Invalid or manipulated token.");
+    }
+});
+
 export default isAuth;

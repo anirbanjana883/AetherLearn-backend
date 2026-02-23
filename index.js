@@ -45,10 +45,18 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+// HELMET
 app.use(helmet({
-    crossOriginResourcePolicy: false, 
-}));
-
+    crossOriginResourcePolicy: false,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://checkout.razorpay.com"],
+            imgSrc: ["'self'", "data:", "https://res.cloudinary.com"],
+            mediaSrc: ["'self'", "https://res.cloudinary.com"], 
+        },
+    },
+}))
 
 const morganFormat = ":method :url :status :response-time ms";
 
@@ -78,8 +86,9 @@ const limiter = rateLimit({
 });
 app.use("/api", limiter);
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// PAYLOAD LIMIT 
+app.use(express.json({ limit: "2mb" })); 
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
 // app.use(mongoSanitize()); 
