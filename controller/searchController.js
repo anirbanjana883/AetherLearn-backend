@@ -1,25 +1,47 @@
 import Course from "../models/courseModel.js";
-import { GoogleGenAI } from "@google/genai";
-import dotenv from "dotenv";
+import { GoogleGenAI, Type } from "@google/genai";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import redisClient from "../config/redis.js"; 
 
-dotenv.config();
+// Initialize AI statelessly
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const searchWithAi = asyncHandler(async (req, res) => {
-  const { input } = req.body;
+    const { input } = req.body;
 
-  if (!input) {
-    throw new ApiError(400, "Query is required");
-  }
+    if (!input) {
+        throw new ApiError(400, "Search query is required");
+    }
 
-  // Initialize AI
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-  });
+    const sanitizedInput = input.toLowerCase().trim();
 
-  const prompt = `
+    // LIGHTNING FAST DB SEARCH (Primary)
+    let courses = await Course.find(
+        { isPublished: true, $text: { $search: sanitizedInput } },
+        { score: { $meta: "textScore" } }
+    )
+    .sort({ score: { $meta: "textScore" } })
+    .limit(20);
+
+    // native srarch 
+    if (courses.length > 0) {
+        return res.status(200).json(
+            new ApiResponse(200, courses, "Search results fetched instantly")
+        );
+    }
+
+    // AI INTENT FALLBACK WITH REDIS CACHE
+    console.log(`Normal search failed for "${sanitizedInput}". Checking Cache...`);
+    
+    const cacheKey = `aiIntent:${sanitizedInput}`;
+    let intentKeyword = await redisClient.get(cacheKey);
+
+    if (!intentKeyword) {
+        console.log(`Cache Miss. Booting up Gemini with 1200ms Circuit Breaker...`);
+        
+        const prompt = `
       You are a highly intelligent classification assistant for an LMS (Learning Management System) that helps students find courses.
 
       Your role:
@@ -63,43 +85,66 @@ export const searchWithAi = asyncHandler(async (req, res) => {
       User Query: "${input}"
       `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash", // Updated to latest stable model name if needed, or keep gemini-1.5-flash
-    contents: prompt,
-  });
+        const aiPromise = ai.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        category: {
+                            type: Type.STRING,
+                            enum: [
+                                "Web Development", "UI/UX Designing", "App Development", 
+                                "Blockchain", "AI / ML", "Data Science", "Data Analytics", 
+                                "Ethical Hacking", "Beginner", "Intermediate", "Advanced", "Others"
+                            ]
+                        }
+                    },
+                    required: ["category"]
+                }
+            }
+        });
 
-  const keyword = response.candidates[0].content.parts[0].text.trim();
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 1200));
+        const response = await Promise.race([aiPromise, timeoutPromise]);
 
-  // 1. Normal Search (Regex on user input)
-  const keywords = input.split(" ").filter(Boolean);
-  const orConditions = keywords.flatMap((word) => [
-    { title: { $regex: word, $options: "i" } },
-    { subtitle: { $regex: word, $options: "i" } },
-    { description: { $regex: word, $options: "i" } },
-    { category: { $regex: word, $options: "i" } },
-    { level: { $regex: word, $options: "i" } },
-  ]);
+        if (!response) {
+            console.warn("⏱Gemini timed out. Defaulting to 'Others'.");
+            intentKeyword = "Others";
+        } else {
+            try {
+                const aiResult = JSON.parse(response.candidates[0].content.parts[0].text);
+                intentKeyword = aiResult.category;
+                
+                // 24 hour cache 
+                await redisClient.set(cacheKey, intentKeyword, "EX", 86400);
+                console.log(`Gemini classified intent as: ${intentKeyword} (Cached)`);
 
-  let courses = await Course.find({
-    isPublished: true,
-    $or: orConditions,
-  });
+            } catch (error) {
+                console.error("Gemini returned malformed data or crashed:", error);
+                intentKeyword = "Others"; 
+            }
+        }
+    } else {
+        console.log(`Cache Hit! Bypassed AI cost. Intent: ${intentKeyword}`);
+    }
 
-  // 2. Fallback AI Search (If normal search fails, use AI keyword)
-  if (courses.length === 0) {
+    // FALLBACK DATABASE QUERY
     courses = await Course.find({
-      isPublished: true,
-      $or: [
-        { title: { $regex: keyword, $options: "i" } },
-        { subtitle: { $regex: keyword, $options: "i" } },
-        { description: { $regex: keyword, $options: "i" } },
-        { category: { $regex: keyword, $options: "i" } },
-        { level: { $regex: keyword, $options: "i" } },
-      ],
-    });
-  }
+        isPublished: true,
+        $or: [
+            { category: intentKeyword },
+            { level: intentKeyword }
+        ]
+    }).limit(20);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, courses, "Search results fetched successfully"));
+    return res.status(200).json(
+        new ApiResponse(200, {
+            aiClassification: intentKeyword,
+            cached: !!await redisClient.get(cacheKey), 
+            courses
+        }, "Search results generated via AI intent")
+    );
 });
