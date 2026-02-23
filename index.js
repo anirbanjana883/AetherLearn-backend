@@ -32,9 +32,12 @@ dotenv.config();
 const port  = process.env.PORT || 5000
 const app = express()
 
+app.use(
+    '/api/order/webhook', 
+    express.raw({ type: 'application/json' })
+);
 
-
-// 1. CORS (Must be first)
+//  CORS 
 app.use(cors({
     origin: ["http://localhost:5173", "http://localhost:5174"], 
     credentials: true,

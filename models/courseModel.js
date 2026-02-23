@@ -27,12 +27,7 @@ const courseSchema = new mongoose.Schema(
     thumbnail: {
       type: String,
     },
-    enrolledStudent: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    enrolledCount: { type: Number, default: 0 },
     lectures: [
       {
         type: mongoose.Schema.Types.ObjectId,
