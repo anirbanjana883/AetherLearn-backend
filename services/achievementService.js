@@ -41,20 +41,30 @@ export const checkAndAwardAchievements = async (userId) => {
       Activity.find({ userId }) 
     ]);
 
+    // Guard 1: If user doesn't exist, stop immediately
     if (!user) return;
 
+    // Guard 2: Ensure activityHistory is an array before mapping
+    const history = activityHistory || [];
+
     const userStats = {
-      STREAK: calculateStreak(activityHistory.map(a => a.date)),
+      // Added optional chaining and fallback
+      STREAK: calculateStreak(history.map(a => a?.date).filter(Boolean)),
       COURSES_ENROLLED: user.enrolledCourses?.length || 0,
-      ACTIVITIES_LOGGED: activityHistory.reduce((sum, item) => sum + item.activityCount, 0),
+      ACTIVITIES_LOGGED: history.reduce((sum, item) => sum + (item?.activityCount || 0), 0),
       LECTURES_COMPLETED: user.completedLectures?.length || 0 
     };
 
     const newAchievements = [];
+    
+    // Guard 3: Ensure unlockedAchievements is an array
+    const unlocked = user.unlockedAchievements || [];
 
     for (const achievement of allAchievements) {
-      if (!user.unlockedAchievements.includes(achievement._id)) {
-        if (userStats[achievement.trigger_event] >= achievement.trigger_threshold) {
+      if (!unlocked.includes(achievement._id)) {
+        // Guard 4: Check if the trigger_event exists in userStats
+        const currentVal = userStats[achievement.trigger_event] || 0;
+        if (currentVal >= achievement.trigger_threshold) {
           newAchievements.push(achievement._id);
         }
       }
@@ -67,6 +77,7 @@ export const checkAndAwardAchievements = async (userId) => {
       console.log(`Awarded ${newAchievements.length} new achievements to user ${userId}`);
     }
   } catch (error) {
+    // This catch block will now capture errors without crashing the whole server
     console.error("Error checking for achievements:", error);
   }
 };

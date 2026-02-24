@@ -27,7 +27,7 @@ export const signup = asyncHandler(async (req, res) => {
     await emailQueue.add("send-welcome-email", {
         email: user.email,
         name: user.name,
-        subject: "Welcome to AetherLearn! 🚀" 
+        subject: "Welcome to AetherLearn! " 
     });
 
     const createdUser = await User.findById(user._id).select("-password");

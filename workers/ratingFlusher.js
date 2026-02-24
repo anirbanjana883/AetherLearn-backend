@@ -3,7 +3,9 @@ import redisClient from "../config/redis.js";
 import Course from "../models/courseModel.js";
 import logger from "../config/logger.js"; // Assuming you have a logger
 
-cron.schedule("*/5 * * * *", async () => {
+
+// Change to: Run every 5 minutes, but at the 2nd minute (2, 7, 12, 17...)
+cron.schedule("2-59/5 * * * *", async () => {
   const lock = await redisClient.set("rating_flush_lock", "locked", {
     nx: true,
     ex: 240,

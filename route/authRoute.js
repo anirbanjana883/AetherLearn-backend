@@ -6,13 +6,22 @@ import { signupSchema, loginSchema, emailSchema, verifyOtpSchema, resetPasswordS
 
 const authRouter = express.Router();
 
+// const authLimiter = rateLimit({
+//     windowMs: 15 * 60 * 1000, // 15 minutes
+//     max: 5, // Only 5 attempts allowed
+//     message: "Too many authentication attempts. Please try again in 15 minutes.",
+//     standardHeaders: true,
+//     legacyHeaders: false,
+// });
+
 const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // Only 5 attempts allowed
+    windowMs: 1 * 60 * 1000, // 15 minutes
+    max: 50, // Only 5 attempts allowed
     message: "Too many authentication attempts. Please try again in 15 minutes.",
     standardHeaders: true,
     legacyHeaders: false,
 });
+
 
 
 authRouter.post("/signup", authLimiter, validate(signupSchema), signup);

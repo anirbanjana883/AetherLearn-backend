@@ -16,7 +16,7 @@ const achievementSchema = new mongoose.Schema({
   },
   trigger_event: {
     type: String,
-    enum: ['STREAK', 'COURSES_ENROLLED', 'ACTIVITIES_LOGGED'], 
+    enum: ['STREAK', 'COURSES_ENROLLED', 'ACTIVITIES_LOGGED', 'LECTURES_COMPLETED'],
     required: true,
   },
   trigger_threshold: {

@@ -27,27 +27,36 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
-    enrolledCourses: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Course",
-      },
-    ],
+    enrolledCourses: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Course",
+        },
+      ],
+      default: [],
+    },
     resetOtp: {
       type: String,
     },
-    completedLectures: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Lecture",
-      },
-    ],
-    unlockedAchievements: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Achievement",
-      },
-    ],
+    completedLectures: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Lecture",
+        },
+      ],
+      default: [],
+    },
+    unlockedAchievements: {
+      type: [
+        {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Achievement",
+        },
+      ],
+      default: [],
+    },
     otpExpires: {
       type: Date,
     },
