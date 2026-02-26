@@ -1,13 +1,16 @@
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
-const genToken = async(userId)=>{
+const genToken = async (userId) => {
     try {
-        const token = await jwt.sign({userId} , process.env.JWT_SECRET,{expiresIn:"7d"})
-        return token
-        console.log(token)
-    } catch (error) {
-        console.log(error)
-    }
-}
+        const token = jwt.sign({ userId }, process.env.JWT_SECRET, {
+            expiresIn: "7d",
+        });
 
-export default genToken
+        return token;
+    } catch (error) {
+        console.error("JWT Generation Error:", error.message);
+        throw error; 
+    }
+};
+
+export default genToken;

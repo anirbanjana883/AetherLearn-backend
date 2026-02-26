@@ -62,6 +62,10 @@ export const videoWorker = new Worker("video-queue", async (job) => {
     const { lectureId, rawVideoUrl, instructorId } = job.data;
     logger.info(`🎬 Starting video processing for Lecture: ${lectureId}`);
 
+    if (!rawVideoUrl) {
+        throw new Error(`CRITICAL: rawVideoUrl is missing for lecture ${lectureId}`);
+    }
+
     const tempDir = path.resolve(`./temp/worker_${lectureId}`);
     await fs.ensureDir(tempDir);
 

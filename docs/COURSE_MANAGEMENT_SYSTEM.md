@@ -24,7 +24,7 @@ To bypass MongoDB's strict 16MB per-document limit, the system completely avoids
 
 - **Course Collection**: Stores global metadata (title, price, creatorId) and an array of Section ObjectIds.
 - **Section Collection**: Stores module organization (title) and an array of Lecture ObjectIds.
-- **Lecture Collection**: Stores granular content payload, video processing state (status: `AWAITING_MEDIA`, `PROCESSING`, `READY`), and final media URLs.
+- **Lecture Collection**: Stores granular content payload, video processing state (status: `UPLOADING`, `PROCESSING`, `READY`), and final media URLs.
 
 **Reasoning**: This schema allows a single course to scale infinitely to thousands of lectures without ever hitting database limits.
 

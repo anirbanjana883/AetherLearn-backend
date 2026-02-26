@@ -10,8 +10,10 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import redisClient from "../config/redis.js";
 import { videoQueue } from "../config/queue.js";
-import path from 'path';
-import fs from 'fs';
+import mongoose from "mongoose";
+
+import path from "path";
+import fs from 'fs-extra';
 
 // COURSE CONTROLLERS
 export const createCourse = asyncHandler(async (req, res) => {
@@ -37,6 +39,7 @@ export const createCourse = asyncHandler(async (req, res) => {
 
 export const getPublishedCourses = asyncHandler(async (req, res) => {
   const cacheKey = "all_courses";
+
   const cachedCourses = await redisClient.get(cacheKey);
 
   if (cachedCourses) {
@@ -44,23 +47,22 @@ export const getPublishedCourses = asyncHandler(async (req, res) => {
       typeof cachedCourses === "string"
         ? JSON.parse(cachedCourses)
         : cachedCourses;
+
     return res
       .status(200)
       .json(new ApiResponse(200, data, "Published courses fetched from Cache"));
   }
 
+  // Fetch from DB
   const courses = await Course.find({ isPublished: true })
-    .populate({
-      path: "sections",
-      populate: { path: "lectures" },
-    })
-    .populate("reviews");
+    .select("title thumbnail price avgRating reviewCount instructor")
+    .populate("instructor", "name profileImage");
 
-  if (!courses || courses.length === 0) {
-    throw new ApiError(404, "No published courses found");
+  if (!courses) {
+    return res.status(200).json(new ApiResponse(200, [], "No courses found"));
   }
 
-  await redisClient.set(cacheKey, JSON.stringify(courses), { EX: 3600 });
+  await redisClient.set(cacheKey, JSON.stringify(courses), { ex: 3600 });
 
   return res
     .status(200)
@@ -71,10 +73,17 @@ export const getPublishedCourses = asyncHandler(async (req, res) => {
 
 export const getCreatorCourses = asyncHandler(async (req, res) => {
   const userId = req.userId;
-  const courses = await Course.find({ creator: userId }).populate("sections");
 
-  if (!courses) {
-    throw new ApiError(404, "No courses found for this creator");
+  const courses = await Course.find({ creator: userId })
+    .populate({
+      path: "sections",
+      select: "title lectures",
+    })
+    .sort({ createdAt: -1 });
+  if (!courses || courses.length === 0) {
+    return res
+      .status(200)
+      .json(new ApiResponse(200, [], "No courses found for this creator"));
   }
 
   return res
@@ -89,72 +98,98 @@ export const editCourse = asyncHandler(async (req, res) => {
   const { title, subtitle, description, category, level, isPublished, price } =
     req.body;
 
-  let thumbnail;
+  let thumbnailUrl;
   if (req.file) {
-    thumbnail = await uploadOnCloudinary(req.file.path);
+    const uploadedUrl = await uploadOnCloudinary(req.file.path);
+
+    if (!uploadedUrl) {
+      throw new ApiError(500, "Thumbnail upload failed");
+    }
+
+    thumbnailUrl = uploadedUrl; 
+    console.log("DEBUG: Thumbnail URL successfully generated:", thumbnailUrl);
   }
 
-  let course = await Course.findById(courseId);
-  if (!course) {
-    throw new ApiError(404, "No course found for editing");
+  const oldCourse = await Course.findById(courseId).select("isPublished");
+  if (!oldCourse) {
+    throw new ApiError(404, "Course not found");
   }
 
-  if (course.creator.toString() !== req.userId) {
+  // Partial Update Object
+  const updateData = {};
+  if (title !== undefined) updateData.title = title;
+  if (subtitle !== undefined) updateData.subtitle = subtitle;
+  if (description !== undefined) updateData.description = description;
+  if (category !== undefined) updateData.category = category;
+  if (level !== undefined) updateData.level = level;
+  if (isPublished !== undefined) updateData.isPublished = isPublished;
+  if (price !== undefined) updateData.price = price;
+  if (thumbnailUrl) updateData.thumbnail = thumbnailUrl;
+
+  const updatedCourse = await Course.findOneAndUpdate(
+    { _id: courseId, creator: req.userId },
+    { $set: updateData },
+    { new: true },
+  );
+
+  if (!updatedCourse) {
     throw new ApiError(403, "Not authorized to edit this course");
   }
 
-  const updateData = {
-    title,
-    subtitle,
-    description,
-    category,
-    level,
-    isPublished,
-    price,
-    ...(thumbnail && { thumbnail }),
-  };
-
-  course = await Course.findByIdAndUpdate(courseId, updateData, { new: true });
-
-  await redisClient.del("all_courses");
+  // Invalidate Cache
   await redisClient.del(`course:${courseId}`);
+  if (
+    updateData.isPublished !== undefined &&
+    updateData.isPublished !== oldCourse.isPublished
+  ) {
+    await redisClient.del("all_courses");
+  }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, course, "Course updated successfully"));
+    .json(new ApiResponse(200, updatedCourse, "Course updated successfully"));
 });
 
 export const getCourseById = asyncHandler(async (req, res) => {
   const { courseId } = req.params;
   const cacheKey = `course:${courseId}`;
 
-  let cachedCourse = await redisClient.get(cacheKey);
-  if (cachedCourse) {
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          JSON.parse(cachedCourse),
-          "Course fetched from cache",
-        ),
-      );
+  try {
+    const cachedCourse = await redisClient.get(cacheKey);
+    if (cachedCourse) {
+      const data =
+        typeof cachedCourse === "string"
+          ? cachedCourse === "[object Object]"
+            ? null
+            : JSON.parse(cachedCourse)
+          : cachedCourse;
+
+      if (data) {
+        return res
+          .status(200)
+          .json(new ApiResponse(200, data, "Course fetched from cache"));
+      }
+    }
+
+    const course = await Course.findById(courseId).populate({
+      path: "sections",
+      populate: { path: "lectures" },
+    });
+
+    if (!course) {
+      throw new ApiError(404, "Course not found");
+    }
+
+    await redisClient.set(cacheKey, JSON.stringify(course), { ex: 3600 });
+
+    return res.status(200).json(new ApiResponse(200, course, "Success"));
+  } catch (error) {
+    console.error("POPULATION ERROR:", error.message);
+    throw new ApiError(
+      500,
+      error.message || "Internal Server Error during population",
+    );
   }
-
-  let course = await Course.findById(courseId).populate({
-    path: "sections",
-    populate: { path: "lectures" },
-  });
-
-  if (!course) {
-    throw new ApiError(404, "Course not found");
-  }
-
-  await redisClient.set(cacheKey, JSON.stringify(course), { EX: 3600 });
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, course, "Course fetched successfully"));
 });
 
 export const removeCourse = asyncHandler(async (req, res) => {
@@ -229,6 +264,84 @@ export const createSection = asyncHandler(async (req, res) => {
   }
 });
 
+export const removeSection = asyncHandler(async (req, res) => {
+  const { sectionId, courseId } = req.params;
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const section = await Section.findById(sectionId).session(session);
+    if (!section) throw new ApiError(404, "Section not found");
+
+    const lectureIds = section.lectures || [];
+    const lectureCount = lectureIds.length;
+
+    await Lecture.deleteMany({
+      _id: { $in: lectureIds }
+    }).session(session);
+
+    await Course.findByIdAndUpdate(
+      courseId,
+      {
+        $pull: { sections: sectionId },
+        $inc: { totalLectures: -lectureCount }
+      }
+    ).session(session);
+
+    await Section.findByIdAndDelete(sectionId).session(session);
+
+    await redisClient.del(`course:${courseId}`);
+    await redisClient.del(`courseMeta:${courseId}`);
+
+    await session.commitTransaction();
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, {}, "Section and its lectures removed successfully"));
+
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
+
+export const editSection = asyncHandler(async (req, res) => {
+  const { sectionId, courseId } = req.params;
+  const { sectionTitle } = req.body;
+
+  if (!sectionTitle) {
+    throw new ApiError(400, "Section title is required");
+  }
+
+  const course = await Course.findOne({
+    _id: courseId,
+    creator: req.userId,
+  });
+
+  if (!course) {
+    throw new ApiError(403, "Not authorized to edit this section");
+  }
+
+  const updatedSection = await Section.findOneAndUpdate(
+    { _id: sectionId, courseId },
+    { $set: { sectionTitle } },
+    { new: true }
+  );
+
+  if (!updatedSection) {
+    throw new ApiError(404, "Section not found");
+  }
+
+  await redisClient.del(`course:${courseId}`);
+
+  return res.status(200).json(
+    new ApiResponse(200, updatedSection, "Section updated successfully")
+  );
+});
+
 // LECTURE CONTROLLERS
 
 export const createLecture = asyncHandler(async (req, res) => {
@@ -249,7 +362,7 @@ export const createLecture = asyncHandler(async (req, res) => {
       [
         {
           lectureTitle,
-          status: "AWAITING_MEDIA",
+          status: "UPLOADING",
         },
       ],
       { session },
@@ -286,7 +399,12 @@ export const createLecture = asyncHandler(async (req, res) => {
 export const getCourseLecture = asyncHandler(async (req, res) => {
   const { courseId } = req.params;
 
-  const course = await Course.findById(courseId).populate("lectures");
+  const course = await Course.findById(courseId).populate({
+    path: "sections",
+    populate: {
+      path: "lectures"
+    }
+  });
   if (!course) {
     throw new ApiError(404, "Course not found");
   }
@@ -353,10 +471,9 @@ export const removeLecture = asyncHandler(async (req, res) => {
     const lecture = await Lecture.findByIdAndDelete(lectureId).session(session);
     if (!lecture) throw new ApiError(404, "Lecture not found");
 
-    const section = await Section.findByIdAndUpdate(
-      sectionId,
-      { $pull: { lectures: lectureId } }
-    ).session(session);
+    const section = await Section.findByIdAndUpdate(sectionId, {
+      $pull: { lectures: lectureId },
+    }).session(session);
 
     if (!section) throw new ApiError(404, "Section not found");
 

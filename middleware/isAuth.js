@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { ApiError } from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import User from "../models/userModel.js"; 
 
 const isAuth = asyncHandler(async (req, res, next) => {
     let token = req.cookies?.token || req.header("Authorization")?.replace("Bearer ", "");
@@ -10,9 +11,17 @@ const isAuth = asyncHandler(async (req, res, next) => {
     }
 
     try {
-        // cryptographic token verification
-        const verifyToken = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = verifyToken.userId;
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        
+        const user = await User.findById(decodedToken.userId).select("-password");
+
+        if (!user) {
+            throw new ApiError(401, "User no longer exists.");
+        }
+
+        req.userId = user._id; 
+        req.user = user; 
+        
         next();
     } catch (error) {
         if (error.name === "TokenExpiredError") {

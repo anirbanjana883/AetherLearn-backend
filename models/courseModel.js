@@ -26,6 +26,7 @@ const courseSchema = new mongoose.Schema(
     },
     thumbnail: {
       type: String,
+      default: "",
     },
     enrolledCount: { type: Number, default: 0 },
     lectures: [
@@ -34,10 +35,15 @@ const courseSchema = new mongoose.Schema(
         ref: "Lecture",
       },
     ],
-    creator: [
+    creator: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true, 
+    },
+    sections: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "Section",
       },
     ],
     isPublished: {
@@ -62,10 +68,10 @@ const courseSchema = new mongoose.Schema(
 
 // for search
 courseSchema.index({
-    title: "text",
-    subtitle: "text",
-    category: "text",
-    description: "text"
+  title: "text",
+  subtitle: "text",
+  category: "text",
+  description: "text",
 });
 
 const Course = mongoose.model("Course", courseSchema);
