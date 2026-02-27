@@ -13,7 +13,7 @@ import { videoQueue } from "../config/queue.js";
 import mongoose from "mongoose";
 
 import path from "path";
-import fs from 'fs-extra';
+import fs from "fs-extra";
 
 // COURSE CONTROLLERS
 export const createCourse = asyncHandler(async (req, res) => {
@@ -106,7 +106,7 @@ export const editCourse = asyncHandler(async (req, res) => {
       throw new ApiError(500, "Thumbnail upload failed");
     }
 
-    thumbnailUrl = uploadedUrl; 
+    thumbnailUrl = uploadedUrl;
     console.log("DEBUG: Thumbnail URL successfully generated:", thumbnailUrl);
   }
 
@@ -278,16 +278,13 @@ export const removeSection = asyncHandler(async (req, res) => {
     const lectureCount = lectureIds.length;
 
     await Lecture.deleteMany({
-      _id: { $in: lectureIds }
+      _id: { $in: lectureIds },
     }).session(session);
 
-    await Course.findByIdAndUpdate(
-      courseId,
-      {
-        $pull: { sections: sectionId },
-        $inc: { totalLectures: -lectureCount }
-      }
-    ).session(session);
+    await Course.findByIdAndUpdate(courseId, {
+      $pull: { sections: sectionId },
+      $inc: { totalLectures: -lectureCount },
+    }).session(session);
 
     await Section.findByIdAndDelete(sectionId).session(session);
 
@@ -298,8 +295,13 @@ export const removeSection = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, {}, "Section and its lectures removed successfully"));
-
+      .json(
+        new ApiResponse(
+          200,
+          {},
+          "Section and its lectures removed successfully",
+        ),
+      );
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -328,7 +330,7 @@ export const editSection = asyncHandler(async (req, res) => {
   const updatedSection = await Section.findOneAndUpdate(
     { _id: sectionId, courseId },
     { $set: { sectionTitle } },
-    { new: true }
+    { new: true },
   );
 
   if (!updatedSection) {
@@ -337,9 +339,9 @@ export const editSection = asyncHandler(async (req, res) => {
 
   await redisClient.del(`course:${courseId}`);
 
-  return res.status(200).json(
-    new ApiResponse(200, updatedSection, "Section updated successfully")
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedSection, "Section updated successfully"));
 });
 
 // LECTURE CONTROLLERS
@@ -362,7 +364,7 @@ export const createLecture = asyncHandler(async (req, res) => {
       [
         {
           lectureTitle,
-          status: "UPLOADING",
+          status: "AWAITING_MEDIA",
         },
       ],
       { session },
@@ -402,8 +404,8 @@ export const getCourseLecture = asyncHandler(async (req, res) => {
   const course = await Course.findById(courseId).populate({
     path: "sections",
     populate: {
-      path: "lectures"
-    }
+      path: "lectures",
+    },
   });
   if (!course) {
     throw new ApiError(404, "Course not found");
@@ -563,7 +565,11 @@ export const completeChunkUpload = asyncHandler(async (req, res) => {
     await fs.remove(chunkPath);
   }
 
-  writeStream.end();
+  await new Promise((resolve, reject) => {
+    writeStream.on("finish", resolve);
+    writeStream.on("error", reject);
+    writeStream.end();
+  });
   await fs.remove(chunkDir);
 
   //  Upload RAW to Cloudinary
@@ -572,19 +578,23 @@ export const completeChunkUpload = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to persist raw video to Cloudinary");
   }
 
-  // 3. Delete the local file immediately to save disk space
+  // Delete the local file immediately to save disk space
   await fs.remove(finalFilePath);
 
-  // 4. Update Database
-  const lecture = await Lecture.findByIdAndUpdate(lectureId, {
-    status: "PROCESSING",
-    rawVideoUrl: cloudRaw.url,
-  });
+  // Update Database
+  const lecture = await Lecture.findByIdAndUpdate(
+    lectureId,
+    {
+      status: "PROCESSING",
+      rawVideoUrl: cloudRaw,
+    },
+    { new: true }, 
+  );
 
-  // 5. Push Job to Queue using the safe Cloudinary URL
+  // Push Job to Queue using the safe Cloudinary URL
   await videoQueue.add("transcode-video", {
     lectureId: lecture._id,
-    rawVideoUrl: cloudRaw.url,
+    rawVideoUrl: cloudRaw,
     instructorId: req.userId,
   });
 

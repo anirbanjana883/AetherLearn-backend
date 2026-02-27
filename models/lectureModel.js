@@ -8,8 +8,8 @@ const lectureSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["UPLOADING", "PROCESSING", "READY", "FAILED"],
-      default: "UPLOADING",
+      enum: ["AWAITING_MEDIA", "PROCESSING", "READY", "FAILED"],
+      default: "AWAITING_MEDIA",
     },
     rawVideoUrl: {
       type: String,

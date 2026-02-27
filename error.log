@@ -1,1 +1,8 @@
 2026-02-26 01:50:28 [ERROR]: Video Processing Failed: Cannot read properties of undefined (reading 'replace')
+2026-02-27 06:45:54 [ERROR]: ❌ Pipeline Failure: Cannot read properties of undefined (reading 'replace')
+2026-02-27 06:53:00 [ERROR]: ❌ Pipeline Failure: Cannot read properties of undefined (reading 'replace')
+2026-02-27 06:54:34 [ERROR]: ❌ Pipeline Failure: Cannot read properties of undefined (reading 'replace')
+2026-02-27 06:56:15 [ERROR]: ❌ Pipeline Failure: Cannot read properties of undefined (reading 'replace')
+2026-02-27 07:03:37 [ERROR]: ❌ Pipeline Failure: Cannot read properties of undefined (reading 'replace')
+2026-02-27 14:54:03 [ERROR]: ❌ Pipeline Failure: Cannot read properties of undefined (reading 'replace')
+2026-02-27 15:02:25 [ERROR]: ❌ BAD DATA: rawVideoUrl is missing for lecture 69a1b1dc4533775aa6579333

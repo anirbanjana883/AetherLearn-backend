@@ -6,10 +6,11 @@ dotenv.config();
 
 const connection = new IORedis(process.env.UPSTASH_REDIS_URL, {
   maxRetriesPerRequest: null,
-  tls: {}   
-});
+  tls: {},
+  connectTimeout: 15000, 
+  keepAlive: 10000,
+})
 
-// Export queues
 export const emailQueue = new Queue("email-queue", {
   connection
 });

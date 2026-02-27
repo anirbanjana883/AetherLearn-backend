@@ -5,7 +5,7 @@ import express from 'express';
 import connectDb from './config/connectDB.js';
 import cookieParser from 'cookie-parser';
 import authRouter from './route/authRoute.js';
-import cors from "cors"
+import cors from "cors";
 import userRouter from './route/userRoute.js';
 import courseRouter from './route/courseRoute.js';
 import paymentRouter from './route/paymentRoute.js';
@@ -22,23 +22,28 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import morgan from 'morgan';
 import logger from "./config/logger.js";
-
-import "./workers/emailWorker.js";
-import "./workers/videoWorker.js";
-import "./workers/analyticsFlusher.js";
-import "./workers/ratingFlusher.js";
 import analyticsRouter from './route/analyticsRoute.js';
 
+// BULL BOARD & AUTH IMPORTS
+import { ExpressAdapter } from '@bull-board/express';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import basicAuth from 'express-basic-auth';
 
-const port  = process.env.PORT || 5000
-const app = express()
+
+import { videoQueue } from './config/queue.js'; 
+import { emailQueue } from './config/queue.js'; 
+
+
+const port = process.env.PORT || 5000;
+const app = express();
 
 app.use(
     '/api/order/webhook', 
     express.raw({ type: 'application/json' })
 );
 
-//  CORS 
+// CORS 
 app.use(cors({
     origin: 'http://localhost:5173', 
     credentials: true,
@@ -57,7 +62,7 @@ app.use(helmet({
             mediaSrc: ["'self'", "https://res.cloudinary.com"], 
         },
     },
-}))
+}));
 
 const morganFormat = ":method :url :status :response-time ms";
 
@@ -95,13 +100,38 @@ app.use(cookieParser());
 // app.use(mongoSanitize()); 
 // app.use(hpp());
 
-
 app.use("/public", express.static("public"));
-app.use("/api/auth",authRouter)
-app.use("/api/user",userRouter)
-app.use("/api/course",courseRouter)
-app.use("/api/order",paymentRouter)
-app.use("/api/review",reviewRouter)
+
+//  BULL BOARD ADMIN SETUP
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+// NOTE: Uncomment this and pass your actual imported queues
+createBullBoard({
+  queues: [
+    new BullMQAdapter(videoQueue),
+    new BullMQAdapter(emailQueue)
+  ],
+  serverAdapter: serverAdapter,
+});
+
+// Secure the route with Basic Auth (Native browser popup)
+app.use('/admin/queues', basicAuth({
+    users: { 
+        // Username is 'admin', password comes from .env or defaults to 'aether2026'
+        'admin': process.env.ADMIN_DASHBOARD_PASS_BULL_MQ
+    },
+    challenge: true, // This triggers the browser's native login modal
+    realm: 'AetherLearn Admin Dashboard'
+}), serverAdapter.getRouter());
+// ==========================================
+
+
+app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
+app.use("/api/course", courseRouter);
+app.use("/api/order", paymentRouter);
+app.use("/api/review", reviewRouter);
 app.use("/api/progress", progressRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/achievements", achievementRouter);
@@ -116,12 +146,12 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.send('Hello from AETHERLEARN ')
-})
+    res.send('Hello from AETHERLEARN ');
+});
 
 app.use(errorHandler);
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`Server is running on port : ${port}`)
-    connectDb()
-})
+    console.log(`Server is running on port : ${port}`);
+    connectDb();
+});
